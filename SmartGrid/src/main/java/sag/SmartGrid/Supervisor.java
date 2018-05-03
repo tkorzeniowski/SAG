@@ -55,7 +55,7 @@ public class Supervisor extends AbstractActor{
             // --------------------------------
 			Parameter x = ampl.getParameter("N");
 			x.setValues(5);
-
+			
 
 			List<Double> zap = new ArrayList<Double>();
 			zap.add(0.0);
