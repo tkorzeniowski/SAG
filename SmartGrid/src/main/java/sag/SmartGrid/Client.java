@@ -6,33 +6,42 @@ import akka.actor.Props;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
 
-import messages.Ack;
+import messages.Status;
+import messages.Location;
 import messages.Offer;
 
 public class Client extends AbstractActor{
 
     private double demand, production, xCoord, yCoord;
-    private final ActorRef clientSupervisor;
+    private final ActorRef clientSupervisor, network;
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
 
-    static public Props props(double demand, double production, double x, double y, ActorRef smartActor) {
-        return Props.create(Client.class, () -> new Client(demand, production, x, y, smartActor));
+    static public Props props(double demand, double production, double x, double y, ActorRef supervisor, ActorRef network) {
+        return Props.create(Client.class, () -> new Client(demand, production, x, y, supervisor, network));
     }
 
 
-    public Client(double demand, double production, double x, double y, ActorRef smartActor){
+    public Client(double demand, double production, double x, double y, ActorRef supervisor, ActorRef network){
         this.demand = demand;
         this.production = production;
         this.xCoord = x;
         this.yCoord = y;
-        this.clientSupervisor = smartActor;
-        stateOffer();
+        this.clientSupervisor = supervisor;
+        this.network = network;
+
+        sendLocation(this.network); // inform network that new client appeared
+        sendOffer();
     }
 
-    public void stateOffer(){
+    private void sendLocation(ActorRef recepient){
+        Location msg = new Location(getSelf(), xCoord, yCoord);
+        log.info("myLocationIs: (" + msg.getX() + ", " + msg.getY() + ")");
+        recepient.tell(msg, getSelf());
+    }
+
+    private void sendOffer(){
         Offer msg = new Offer(getSelf(), demand, production );
-        //System.out.println("Client sent demand = " + this.demand);
         log.info("stateOffer: dem-" + msg.getDemand() + " , prod-" + msg.getProduction());
         clientSupervisor.tell(msg, getSelf());
     }
@@ -42,24 +51,21 @@ public class Client extends AbstractActor{
         log.info(msg.getSender() + " " + msg.getDemand() + " " + msg.getProduction());
         this.production -= msg.getProduction();
         this.demand -= msg.getDemand();
-        //System.out.println("Client demand after = " + this.demand);
         log.info("Client demand after = " + this.demand);
 
     }
 
-    private void receiveAck(Ack ack){
-        if(ack.getSender().equals(clientSupervisor)){
-            if(ack.getAck() == Ack.AckType.OFFER_ACK){
-                //wait for supply plan
-                /*
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException ie){
-
-                }
-                */
+    private void receiveStatus(Status status){
+        if(status.getSender().equals(clientSupervisor)){
+            if(status.getStatus() == Status.StatusType.OFFER_ACK){
+                //stop waiting for ack
             }
         }
+
+        if(status.getStatus() == Status.StatusType.SEND_LOCATION){
+            sendLocation(status.getSender());
+        }
+
     }
 
 
@@ -67,7 +73,7 @@ public class Client extends AbstractActor{
     public Receive createReceive() {
         return receiveBuilder()
                 .match(Offer.class, this::receiveSupply)
-                .match(Ack.class, this::receiveAck)
+                .match(Status.class, this::receiveStatus)
                 .build();
     }
 
