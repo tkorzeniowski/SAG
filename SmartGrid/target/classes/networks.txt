@@ -1,2 +1,0 @@
-network1 supervisor1
-network2 supervisor2
