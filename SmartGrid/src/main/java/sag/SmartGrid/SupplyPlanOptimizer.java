@@ -1,4 +1,6 @@
-package sag
+package sag.SmartGrid;
+
+import messages.CostMatrix;
 
 class SupplyPlanOptimizer {
     public static double[][] optimize(final CostMatrix costMat) {
@@ -16,6 +18,6 @@ class SupplyPlanOptimizer {
          * subject to ogrProd {i in 1..N}: sum{j in 1..N} xTransp[i,j] <= prod[i];
          */
 
-        new double[0][0] {};
+        return new double[0][];
     }
 }

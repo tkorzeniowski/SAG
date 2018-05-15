@@ -5,13 +5,11 @@ import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
-
 import messages.CostMatrix;
-import messages.Status;
 import messages.Offer;
+import messages.Status;
 import scala.concurrent.duration.Duration;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -27,11 +25,14 @@ public class Supervisor extends AbstractActor{
 
 
     static public Props props() {
-        return Props.create(Supervisor.class, () -> new Supervisor());
+        return Props.create(Supervisor.class, Supervisor::new);
     }
 
+    private void receiveCostMatrix(final CostMatrix cm) {
 
-    private void amplDemo(CostMatrix cm){
+    }
+
+    /**private void amplDemo(CostMatrix cm){
         AMPL ampl = new AMPL();
 
         ClassLoader classLoader = getClass().getClassLoader();
@@ -117,7 +118,7 @@ public class Supervisor extends AbstractActor{
 
         }
 
-    }
+    }*/
 
     private void createSupplyPlan(){
         N = clients.size();
@@ -204,7 +205,7 @@ public class Supervisor extends AbstractActor{
             .match(Status.class, this::receiveStatus)
             .matchEquals("createSupplyPlan", m -> createSupplyPlan())
             .matchEquals("sendSupplyPlan", m -> sendSupplyPlan())
-            .match(CostMatrix.class, this::amplDemo)
+            .match(CostMatrix.class, this::receiveCostMatrix)
             .build();
     }
 
