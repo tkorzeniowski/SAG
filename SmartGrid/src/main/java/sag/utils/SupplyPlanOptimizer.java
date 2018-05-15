@@ -1,6 +1,6 @@
-package sag.SmartGrid;
+package sag.utils;
 
-import messages.CostMatrix;
+import sag.model.CostMatrix;
 
 class SupplyPlanOptimizer {
     public static double[][] optimize(final CostMatrix costMat) {
@@ -17,6 +17,9 @@ class SupplyPlanOptimizer {
          * subject to ogrZap {j in 1..N}: sum{i in 1..N} xTransp[i,j] >= dem[j];
          * subject to ogrProd {i in 1..N}: sum{j in 1..N} xTransp[i,j] <= prod[i];
          */
+
+        int clients = costMat.numberOfClients();
+        //double[] c = new double[];
 
         return new double[0][];
     }

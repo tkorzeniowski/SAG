@@ -1,4 +1,4 @@
-package messages;
+package sag.messages;
 
 import akka.actor.ActorRef;
 

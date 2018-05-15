@@ -1,7 +1,10 @@
-package sag.SmartGrid;
+package sag;
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
+import sag.actors.Client;
+import sag.actors.Network;
+import sag.actors.Supervisor;
 
 import java.io.File;
 import java.io.IOException;

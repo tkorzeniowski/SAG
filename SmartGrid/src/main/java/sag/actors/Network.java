@@ -1,11 +1,11 @@
-package sag.SmartGrid;
+package sag.actors;
 
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
-import messages.CostMatrix;
-import messages.Location;
-import messages.Status;
+import sag.model.CostMatrix;
+import sag.model.Location;
+import sag.messages.Status;
 
 import java.util.ArrayList;
 import java.util.List;

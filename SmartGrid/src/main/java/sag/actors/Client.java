@@ -1,4 +1,4 @@
-package sag.SmartGrid;
+package sag.actors;
 
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
@@ -6,9 +6,9 @@ import akka.actor.Props;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
 
-import messages.Status;
-import messages.Location;
-import messages.Offer;
+import sag.messages.Status;
+import sag.model.Location;
+import sag.messages.Offer;
 
 public class Client extends AbstractActor{
 

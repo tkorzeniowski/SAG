@@ -1,13 +1,13 @@
-package sag.SmartGrid;
+package sag.actors;
 
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
-import messages.CostMatrix;
-import messages.Offer;
-import messages.Status;
+import sag.model.CostMatrix;
+import sag.messages.Offer;
+import sag.messages.Status;
 import scala.concurrent.duration.Duration;
 
 import java.util.ArrayList;
