@@ -7,7 +7,7 @@ import akka.event.Logging;
 import akka.event.LoggingAdapter;
 
 import sag.messages.Status;
-import sag.model.Location;
+import sag.model.ClientLocation;
 import sag.messages.Offer;
 
 public class Client extends AbstractActor{
@@ -35,7 +35,7 @@ public class Client extends AbstractActor{
     }
 
     private void sendLocation(ActorRef recepient){
-        Location msg = new Location(getSelf(), xCoord, yCoord);
+        ClientLocation msg = new ClientLocation(getSelf(), xCoord, yCoord);
         log.info("myLocationIs: (" + msg.getX() + ", " + msg.getY() + ")");
         recepient.tell(msg, getSelf());
     }
