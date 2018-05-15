@@ -8,7 +8,7 @@ import sag.messages.AnnounceLocation;
 import sag.messages.RequestCostMatrix;
 import sag.model.CostMatrix;
 import sag.model.ClientLocation;
-import sag.messages.Status;
+import sag.messages.StatusInfo;
 
 import java.util.ArrayList;
 
@@ -39,14 +39,14 @@ public class Network extends AbstractActor {
      */
     public Network(ActorRef supervisor) {
         this.networkSupervisor = supervisor;
-        sendStatus(Status.StatusType.DECLARE_NETWORK);
+        sendStatus(StatusInfo.StatusType.DECLARE_NETWORK);
     }
 
     /*
      * Przesyła wiadomość z informacją o statusie sieci do przypisanego nadzorcy.
      */
-    private void sendStatus(Status.StatusType statusType) {
-        Status msg = new Status(getSelf(), statusType);
+    private void sendStatus(StatusInfo.StatusType statusType) {
+        StatusInfo msg = new StatusInfo(statusType);
         networkSupervisor.tell(msg, getSelf());
     }
 
@@ -79,7 +79,6 @@ public class Network extends AbstractActor {
                 null
         );
         */
-
     }
 
     /**
@@ -95,5 +94,4 @@ public class Network extends AbstractActor {
                 .match(RequestCostMatrix.class, this::sendCostMatrix)
                 .build();
 	}
-
 }

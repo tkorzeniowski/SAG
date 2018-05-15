@@ -8,7 +8,7 @@ import akka.event.LoggingAdapter;
 import sag.messages.RequestCostMatrix;
 import sag.model.CostMatrix;
 import sag.messages.Offer;
-import sag.messages.Status;
+import sag.messages.StatusInfo;
 import scala.concurrent.duration.Duration;
 
 import java.util.ArrayList;
@@ -17,9 +17,10 @@ import java.util.concurrent.TimeUnit;
 
 public class Supervisor extends AbstractActor{
 
-    private List<ActorRef> clients;
+    private List<ActorRef> clients = new ArrayList<>();
+    private List<Double> demands = new ArrayList<>();
+    private List<Double> production = new ArrayList<>();
     private ActorRef network;
-    private List<Double> demands, production;
     private double[][] costMatrix, supplyPlan;
     private int N = 0;
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
@@ -121,36 +122,35 @@ public class Supervisor extends AbstractActor{
 
     }*/
 
-    private void createSupplyPlan(){
+    private void createSupplyPlan() {
         N = clients.size();
         System.out.println("N = " + N);
-        int i=0;
+        int i = 0;
         System.out.println("Otrzymałem następujące oferty:");
-        for(ActorRef client: clients){
+        for (ActorRef client: clients) {
             System.out.println(clients.get(i) + " " + demands.get(i) + " " + production.get(i));
             ++i;
         }
 
         network.tell(new RequestCostMatrix(), getSelf()); // ask for cost matrix
-
     }
 
-    private void sendSupplyPlan(){
+    private void sendSupplyPlan() {
         int k = 0;
-        for(ActorRef actor: clients){
-            double demand=0;
-            for(int i=0; i<N; ++i){
+        for (ActorRef actor: clients) {
+            double demand = 0;
+            for (int i = 0; i < N; ++i){
                 demand += supplyPlan[i][k];
             }
             ++k;
 
-            Offer msg = new Offer(actor, demand, 0.0);
+            Offer msg = new Offer(demand, 0.0);
             actor.tell(msg, actor);
         }
     }
 
     @Override
-    public void preStart(){
+    public void preStart() {
 
         getContext().getSystem().scheduler().schedule(
                 Duration.create(100, TimeUnit.MILLISECONDS), // Initial delay 100 milliseconds
@@ -160,7 +160,6 @@ public class Supervisor extends AbstractActor{
                 getContext().getSystem().dispatcher(),
                 null
                 );
-
 
         /*
            getContext().getSystem().scheduler().schedule(
@@ -174,28 +173,21 @@ public class Supervisor extends AbstractActor{
            */
     }
 
-    private void receiveOffer(Offer msg){
+    private void receiveOffer(Offer msg) {
+        log.info(this.sender() + " " + msg.demand + " " + msg.production);
 
-        log.info(msg.getSender() + " " + msg.getDemand() + " " + msg.getProduction() );
+        clients.add(this.sender());
+        demands.add(msg.demand);
+        production.add(msg.production);
 
-        if(clients == null || clients.isEmpty()){ clients = new ArrayList<ActorRef>(); }
-
-        if(demands == null || demands.isEmpty()){ demands = new ArrayList<Double>(); }
-
-        if(production == null || production.isEmpty()){ production = new ArrayList<Double>(); }
-
-        clients.add(msg.getSender());
-        demands.add(msg.getDemand());
-        production.add(msg.getProduction());
-
-        Status status = new Status(getSelf(), Status.StatusType.OFFER_ACK);
-        msg.getSender().tell(status, ActorRef.noSender());
+        StatusInfo status = new StatusInfo(StatusInfo.StatusType.OFFER_ACK);
+        this.sender().tell(status, ActorRef.noSender());
 
     }
 
-    private void receiveStatus(Status msg){
-        if(msg.getStatus() == Status.StatusType.DECLARE_NETWORK){
-            this.network = msg.getSender();
+    private void receiveStatus(StatusInfo msg) {
+        if(msg.status == StatusInfo.StatusType.DECLARE_NETWORK){
+            this.network = this.sender();
         }
     }
 
@@ -203,7 +195,7 @@ public class Supervisor extends AbstractActor{
     public Receive createReceive() {
         return receiveBuilder()
             .match(Offer.class, this::receiveOffer)
-            .match(Status.class, this::receiveStatus)
+            .match(StatusInfo.class, this::receiveStatus)
             .matchEquals("createSupplyPlan", m -> createSupplyPlan())
             .matchEquals("sendSupplyPlan", m -> sendSupplyPlan())
             .match(CostMatrix.class, this::receiveCostMatrix)
