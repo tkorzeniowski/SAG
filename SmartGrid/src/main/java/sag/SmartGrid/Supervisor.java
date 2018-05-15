@@ -6,14 +6,9 @@ import akka.actor.Props;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
 
-import com.ampl.AMPL;
-import com.ampl.Parameter;
-import com.ampl.Variable;
 import messages.CostMatrix;
 import messages.Status;
 import messages.Offer;
-import scala.concurrent.Await;
-import scala.concurrent.Awaitable;
 import scala.concurrent.duration.Duration;
 
 import java.io.File;
@@ -23,39 +18,37 @@ import java.util.concurrent.TimeUnit;
 
 public class Supervisor extends AbstractActor{
 
-	private List<ActorRef> clients;
-	private ActorRef network;
-	private List<Double> demands, production;
-	private double[][] costMatrix, supplyPlan;
-	private int N = 0;
-	private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
-	
-	
-	static public Props props() {
-	    return Props.create(Supervisor.class, () -> new Supervisor());
-	  }
-	
-	
-	public Supervisor(){ }
+    private List<ActorRef> clients;
+    private ActorRef network;
+    private List<Double> demands, production;
+    private double[][] costMatrix, supplyPlan;
+    private int N = 0;
+    private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
-	private void amplDemo(CostMatrix cm){
-	    AMPL ampl = new AMPL();
 
-	    ClassLoader classLoader = getClass().getClassLoader();
+    static public Props props() {
+        return Props.create(Supervisor.class, () -> new Supervisor());
+    }
 
-	    try {
-			ampl.reset();
-			String modelFile = new File(classLoader.getResource("SmartGridModel.mod").getFile()).getAbsolutePath();
+
+    private void amplDemo(CostMatrix cm){
+        AMPL ampl = new AMPL();
+
+        ClassLoader classLoader = getClass().getClassLoader();
+
+        try {
+            ampl.reset();
+            String modelFile = new File(classLoader.getResource("SmartGridModel.mod").getFile()).getAbsolutePath();
             ampl.read(modelFile);
 
             // --------------------------------
-			//String dataFile = new File(classLoader.getResource("SmartGridData.dat").getFile()).getAbsolutePath();
+            //String dataFile = new File(classLoader.getResource("SmartGridData.dat").getFile()).getAbsolutePath();
             //ampl.readData(dataFile);
 
             // --------------------------------
             // set model parameters
-			Parameter x = ampl.getParameter("N");
-			x.setValues(N);
+            Parameter x = ampl.getParameter("N");
+            x.setValues(N);
 
             x = ampl.getParameter("dem");
             x.setValues(demands.toArray());
@@ -73,40 +66,40 @@ public class Supervisor extends AbstractActor{
                 System.out.println();
             }
             // convert matrix to vector
-			double[] costMatrixVector = new double[N*N];
-			System.arraycopy(costMatrix[0], 0, costMatrixVector, 0, costMatrix[0].length);
+            double[] costMatrixVector = new double[N*N];
+            System.arraycopy(costMatrix[0], 0, costMatrixVector, 0, costMatrix[0].length);
 
-			for(int i=0; i<(N-1); ++i){ // N-1
+            for(int i=0; i<(N-1); ++i){ // N-1
                 System.arraycopy(costMatrix[i+1], 0, costMatrixVector, costMatrix[i].length, costMatrix[i+1].length);
             }
 
             x = ampl.getParameter("cTransp");
-			x.setValues(costMatrixVector);
+            x.setValues(costMatrixVector);
 
-			// --------------------------------
+            // --------------------------------
             ampl.solve(); // solve model to get supply plan
 
         } catch (java.io.IOException e){
-	        System.out.println("File not found!");
+            System.out.println("File not found!");
         }
 
         if(ampl.getObjective("f_celu").value() == 0){
-	    	System.out.println("Brak rozwiązania! ograniczenia niespełnione");
-		} else {
-			Variable v = ampl.getVariable("xTransp");
-			//System.out.println(ampl.getParameter("prod").getValues());
-			//System.out.print(v.getValues());
+            System.out.println("Brak rozwiązania! ograniczenia niespełnione");
+        } else {
+            Variable v = ampl.getVariable("xTransp");
+            //System.out.println(ampl.getParameter("prod").getValues());
+            //System.out.print(v.getValues());
 
-			double[] valColumn = v.getValues().getColumnAsDoubles("val"); // values of xTransp
+            double[] valColumn = v.getValues().getColumnAsDoubles("val"); // values of xTransp
 
-			//System.out.println(valColumn[1]);
+            //System.out.println(valColumn[1]);
 
             // convert model results to supply plan
-			supplyPlan = new double[N][N];
+            supplyPlan = new double[N][N];
             int index=0;
-			for(int i=0; i<N; ++i){
+            for(int i=0; i<N; ++i){
                 supplyPlan[i] = new double[N];
-			    for(int j=0; j<N; ++j) {
+                for(int j=0; j<N; ++j) {
                     supplyPlan[i][j] = valColumn[index];
                     ++index;
                 }
@@ -114,40 +107,38 @@ public class Supervisor extends AbstractActor{
 
             System.out.println("Supply plan:");
             for(int i=0; i<N; ++i){
-			    for(int j=0; j<N; ++j){
-			        System.out.print(supplyPlan[i][j] + " ");
+                for(int j=0; j<N; ++j){
+                    System.out.print(supplyPlan[i][j] + " ");
                 }
                 System.out.println();
             }
 
             sendSupplyPlan(); // inform clients
 
-		}
+        }
 
     }
-	
 
+    private void createSupplyPlan(){
+        N = clients.size();
+        System.out.println("N = " + N);
+        int i=0;
+        System.out.println("Otrzymałem następujące oferty:");
+        for(ActorRef client: clients){
+            System.out.println(clients.get(i) + " " + demands.get(i) + " " + production.get(i));
+            ++i;
+        }
 
-	private void createSupplyPlan(){
-	    N = clients.size();
-	    System.out.println("N = " + N);
-		int i=0;
-		System.out.println("Otrzymałem następujące oferty:");
-		for(ActorRef client: clients){
-			System.out.println(clients.get(i) + " " + demands.get(i) + " " + production.get(i));
-			++i;
-		}
+        network.tell(new CostMatrix(getSelf(), clients, null), getSelf()); // ask for cost matrix
 
-		network.tell(new CostMatrix(getSelf(), clients, null), getSelf()); // ask for cost matrix
+    }
 
-	}
-
-	private void sendSupplyPlan(){
-	    int k = 0;
-	    for(ActorRef actor: clients){
-	        double demand=0;
-	        for(int i=0; i<N; ++i){
-	            demand += supplyPlan[i][k];
+    private void sendSupplyPlan(){
+        int k = 0;
+        for(ActorRef actor: clients){
+            double demand=0;
+            for(int i=0; i<N; ++i){
+                demand += supplyPlan[i][k];
             }
             ++k;
 
@@ -157,29 +148,29 @@ public class Supervisor extends AbstractActor{
     }
 
     @Override
-	public void preStart(){
+    public void preStart(){
 
-		getContext().getSystem().scheduler().schedule(
-				Duration.create(100, TimeUnit.MILLISECONDS), // Initial delay 100 milliseconds
-				Duration.create(3, TimeUnit.SECONDS),     // Frequency 3 seconds
-				super.getSelf(), // Send the message to itself
-				"createSupplyPlan",
-				getContext().getSystem().dispatcher(),
-				null
-		);
-
-
-		/*
         getContext().getSystem().scheduler().schedule(
                 Duration.create(100, TimeUnit.MILLISECONDS), // Initial delay 100 milliseconds
-                Duration.create(4, TimeUnit.SECONDS),     // Frequency 2 seconds
+                Duration.create(3, TimeUnit.SECONDS),     // Frequency 3 seconds
                 super.getSelf(), // Send the message to itself
-                "sendSupplyPlan",
+                "createSupplyPlan",
                 getContext().getSystem().dispatcher(),
                 null
-        );
-        */
-	}
+                );
+
+
+        /*
+           getContext().getSystem().scheduler().schedule(
+           Duration.create(100, TimeUnit.MILLISECONDS), // Initial delay 100 milliseconds
+           Duration.create(4, TimeUnit.SECONDS),     // Frequency 2 seconds
+           super.getSelf(), // Send the message to itself
+           "sendSupplyPlan",
+           getContext().getSystem().dispatcher(),
+           null
+           );
+           */
+    }
 
     private void receiveOffer(Offer msg){
 
@@ -206,15 +197,15 @@ public class Supervisor extends AbstractActor{
         }
     }
 
-	@Override
-	public Receive createReceive() {
-		return receiveBuilder()
-				.match(Offer.class, this::receiveOffer)
-                .match(Status.class, this::receiveStatus)
-				.matchEquals("createSupplyPlan", m -> createSupplyPlan())
-                .matchEquals("sendSupplyPlan", m -> sendSupplyPlan())
-                .match(CostMatrix.class, this::amplDemo)
-				.build();
-	}
-	
+    @Override
+    public Receive createReceive() {
+        return receiveBuilder()
+            .match(Offer.class, this::receiveOffer)
+            .match(Status.class, this::receiveStatus)
+            .matchEquals("createSupplyPlan", m -> createSupplyPlan())
+            .matchEquals("sendSupplyPlan", m -> sendSupplyPlan())
+            .match(CostMatrix.class, this::amplDemo)
+            .build();
+    }
+
 }
