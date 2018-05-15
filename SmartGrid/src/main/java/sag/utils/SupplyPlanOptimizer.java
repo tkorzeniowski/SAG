@@ -18,7 +18,6 @@ class SupplyPlanOptimizer {
          * subject to ogrProd {i in 1..N}: sum{j in 1..N} xTransp[i,j] <= prod[i];
          */
 
-        int clients = costMat.numberOfClients();
         //double[] c = new double[];
 
         return new double[0][];
