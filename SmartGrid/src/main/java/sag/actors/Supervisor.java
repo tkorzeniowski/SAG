@@ -5,6 +5,7 @@ import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
+import sag.messages.RequestCostMatrix;
 import sag.model.CostMatrix;
 import sag.messages.Offer;
 import sag.messages.Status;
@@ -130,7 +131,7 @@ public class Supervisor extends AbstractActor{
             ++i;
         }
 
-        network.tell(new CostMatrix(getSelf(), clients, null), getSelf()); // ask for cost matrix
+        network.tell(new RequestCostMatrix(), getSelf()); // ask for cost matrix
 
     }
 

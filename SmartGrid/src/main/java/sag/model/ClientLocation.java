@@ -18,7 +18,7 @@ public class ClientLocation {
     }
 
     public ActorRef getClient() { return client; }
-    public double getX() { return location.first(); }
-    public double getY() { return location.second(); }
+    public double x() { return location.first(); }
+    public double y() { return location.second(); }
     public Pair<Double, Double>  getLocation() { return location; }
 }

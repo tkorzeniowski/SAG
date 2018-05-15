@@ -1,30 +1,41 @@
 package sag.model;
 
-import akka.actor.ActorRef;
+import java.util.ArrayList;
 
-import java.util.List;
-
+/**
+ * Reprezentuje macierz odległości (euclidesowej) pomiędzy klientami.
+ * Odległości liczone są pomiędzy wszystkimi klientami należącymi do danej sieci.
+ */
 public class CostMatrix {
 
-    private ActorRef sender;
-    private List<ActorRef> clients;
-    private double[][] costMatrix;
+    public final double[][] costMatrix;
 
-    public ActorRef getSender() { return sender; }
+    /**
+     * Konstruktor macierzy odległości, wyznaczanych na podstawie położeń klientów.
+     * @param locations Lista klientów oraz ich lokacji.
+     */
+    public CostMatrix(final ArrayList<ClientLocation> locations) {
+        int noClients = locations.size();
+        double[][] cm = new double[noClients][noClients];
 
-    public void setSender(ActorRef sender) { this.sender = sender; }
+        for (int row = 0; row < noClients; ++row) {
+            for (int col = 0; col < noClients; ++col) {
+                if (row < col) {
+                    cm[row][col] = distance(locations.get(row), locations.get(col));
+                    cm[col][row] = cm[row][col];
+                } else if (row == col) {
+                    cm[row][col] = 0.0;
+                }
+            }
+        }
 
-    public List<ActorRef> getClients() { return clients; }
-
-    public void setClients(List<ActorRef> clients) { this.clients = clients; }
-
-    public CostMatrix(ActorRef sender, List<ActorRef> clients, double[][] cm){
-        this.sender = sender;
-        this.clients = clients;
-        this.costMatrix = cm;
+        costMatrix = cm;
     }
 
-    public double[][] getCostMatrix() {
-        return costMatrix;
+    /*
+     * Oblicza odległość euclidesową na płaszczyźnie.
+     */
+    private double distance(final ClientLocation first, final ClientLocation second) {
+        return Math.sqrt(Math.pow(first.x() - second.x(), 2) + Math.pow(first.y() - second.y(), 2));
     }
 }

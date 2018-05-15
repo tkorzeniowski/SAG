@@ -3,6 +3,7 @@ package sag.actors;
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
+import sag.messages.AnnounceCostMatrix;
 import sag.messages.AnnounceLocation;
 import sag.messages.RequestCostMatrix;
 import sag.model.CostMatrix;
@@ -10,7 +11,6 @@ import sag.model.ClientLocation;
 import sag.messages.Status;
 
 import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Aktor reprezentujący sieć przesyłową. Komunikuje się z aktorem nadzorcą
@@ -19,11 +19,9 @@ import java.util.List;
  */
 public class Network extends AbstractActor {
 
-    private final static double infinity = 1e10;
-
     // Sieć przechowuje aktualne listy wszystkich swoich klientów
     // oraz ich położeń, początkowo puste.
-    private List<ClientLocation> locations = new ArrayList<>();
+    private ArrayList<ClientLocation> locations = new ArrayList<>();
     private ActorRef networkSupervisor;
 
     /**
@@ -53,54 +51,20 @@ public class Network extends AbstractActor {
     }
 
     /*
-     * Na postastawie wiadomości otrzymanych od klientów uzupełnia wewnętrzne listy
+     * Na podstawie wiadomości otrzymanych od klientów uzupełnia wewnętrzną listę
      * klientów oraz ich położeń, które pozwalają na skonstruowanie macierzy kosztów.
      */
     private void receiveLocation(AnnounceLocation msg) {
         locations.add(new ClientLocation(this.sender(), msg.location));
     }
 
-    private double[][] calculateCostMatrix() {
-        double[][] cm = new double[0][];
-
-//        List<ActorRef> tmpClients;
-//        List<Double> x, y;
-//
-//        tmpClients = new ArrayList<ActorRef>();
-//        x = new ArrayList<Double>();
-//        y = new ArrayList<Double>();
-//
-//        for(ActorRef tc : cList){
-//            int i = 0;
-//            for(ActorRef client : clients){
-//                if(tc.compareTo(client) == 0){
-//                    tmpClients.add(client);
-//                    x.add(xLocation.get(i).doubleValue());
-//                    y.add(yLocation.get(i).doubleValue());
-//                    break;
-//                }
-//                ++i;
-//            }
-//        }
-//
-//        for(int i = 0; i<cList.size(); ++i){
-//            cm[i] = new double[cList.size()];
-//
-//            for(int j = 0; j< cList.size(); ++j){
-//                cm[i][j] = Math.sqrt(Math.pow(x.get(i).doubleValue() - x.get(j).doubleValue(), 2) + Math.pow(y.get(i).doubleValue() - y.get(j).doubleValue(), 2));
-//                cm[j][i] = cm[i][j];
-//            }
-//
-//            cm[i][i] = infinity;
-//        }
-
-        return cm;
-    }
-
-    private void sendCostMatrix(RequestCostMatrix msg) {
-        double[][] cm = calculateCostMatrix();
-        CostMatrix cmMsg = new CostMatrix(getSelf(),null, cm);
-        networkSupervisor.tell(cmMsg, getSelf());
+    /*
+     * Tworzy i wysyła macierz kosztów do przypisanego nadzorcy.
+     */
+    private void sendCostMatrix(RequestCostMatrix rcm) {
+        CostMatrix cm = new CostMatrix(locations);
+        AnnounceCostMatrix msg = new AnnounceCostMatrix(cm);
+        networkSupervisor.tell(msg, getSelf());
     }
 
     @Override
@@ -118,6 +82,12 @@ public class Network extends AbstractActor {
 
     }
 
+    /**
+     * Reaguje na przyjęcie wiadomości od innego aktora zgodnie z zadanymi wzorcami zachowań.
+     * Sieć jest przygotowana na otrzymywanie lokacji od klienta oraz na zgłaszenie
+     * zapotrzebowania na macierz kosztów przez nadzorcę.
+     * @return Sposób zachowania aktora w obliczu otrzymania wiadomości konkretnego rodzaju.
+     */
     @Override
 	public Receive createReceive() {
 		return receiveBuilder()

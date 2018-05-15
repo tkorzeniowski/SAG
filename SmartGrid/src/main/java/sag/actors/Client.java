@@ -36,7 +36,7 @@ public class Client extends AbstractActor{
 
     private void sendLocation(ActorRef recepient){
         ClientLocation msg = new ClientLocation(getSelf(), xCoord, yCoord);
-        log.info("myLocationIs: (" + msg.getX() + ", " + msg.getY() + ")");
+        log.info("myLocationIs: (" + msg.x() + ", " + msg.y() + ")");
         recepient.tell(msg, getSelf());
     }
 
