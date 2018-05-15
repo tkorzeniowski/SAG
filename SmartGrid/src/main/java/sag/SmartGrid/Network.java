@@ -3,80 +3,66 @@ package sag.SmartGrid;
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
-import akka.event.Logging;
-import akka.event.LoggingAdapter;
-
 import messages.CostMatrix;
 import messages.Location;
 import messages.Status;
-import scala.concurrent.duration.Duration;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
-public class Network extends AbstractActor{
+/**
+ * Aktor reprezentujący sieć przesyłową. Komunikuje się z aktorem nadzorcą
+ * przekazując mu macierz kosztów przesłania medium pomiędzy klientami,
+ * wyznaczanej na podstawie ich położeń.
+ */
+public class Network extends AbstractActor {
 
-    private double infinity = 1e10;
-    //private double[][] costMatrix;
-    private List<ActorRef> clients;
-    private List<Double> xLocation, yLocation;
+    private final static double infinity = 1e10;
+
+    // Sieć przechowuje aktualne listy wszystkich swoich klientów
+    // oraz ich położeń (osobno współrzędne x i y), początkowo puste.
+    private List<ActorRef> clients = new ArrayList<>();
+    private List<Double> xLocation = new ArrayList<>();
+    private List<Double> yLocation = new ArrayList<>();
     private ActorRef networkSupervisor;
 
+    /**
+     * Klasa konfigurująca określająca sposób tworzenia aktora klasy Network.
+     * @param supervisor Aktor nadzorcy przypisany danemu aktorowi sieci.
+     * @return Obiekt konfiguracji aktora sieci.
+     */
     static public Props props(ActorRef supervisor) {
         return Props.create(Network.class, () -> new Network(supervisor));
     }
 
-    public Network(ActorRef supervisor){
+    /**
+     * Konstruktor klasy sieć. Informuje przypisanego nadzorcę o swoim istnieniu.
+     * @param supervisor Aktor nadzorcy przypisany danemu aktorowi sieci.
+     */
+    public Network(ActorRef supervisor) {
         this.networkSupervisor = supervisor;
-        informSupervisor();
-    }
-
-    private void informSupervisor(){
-        Status msg = new Status(getSelf(), Status.StatusType.DECLARE_NETWORK);
-        networkSupervisor.tell(msg, getSelf());
-    }
-
-    private void receiveLocation(Location msg){
-        if(clients == null || clients.isEmpty()){ clients = new ArrayList<ActorRef>(); }
-
-        if(xLocation == null || xLocation.isEmpty()){ xLocation = new ArrayList<Double>(); }
-
-        if(yLocation == null || yLocation.isEmpty()){ yLocation = new ArrayList<Double>(); }
-
-        clients.add(msg.getSender());
-        xLocation.add(msg.getX());
-        yLocation.add(msg.getY());
-
+        sendStatus(Status.StatusType.DECLARE_NETWORK);
     }
 
     /*
-    private void calculateCostMatrix(){
-        costMatrix = new double[clients.size()][clients.size()];
-
-        for(int i = 0; i<clients.size(); ++i){
-            costMatrix[i] = new double[clients.size()];
-
-            for(int j = 0; j< clients.size(); ++j){
-                costMatrix[i][j] = Math.sqrt(Math.pow(xLocation.get(i).doubleValue() - xLocation.get(j).doubleValue(), 2) + Math.pow(yLocation.get(i).doubleValue() - yLocation.get(j).doubleValue(), 2));
-                costMatrix[j][i] = costMatrix[i][j];
-            }
-
-            costMatrix[i][i] = infinity;
-        }
-
-        System.out.println("Macierz kosztów:");
-        for(int i = 0; i<clients.size(); ++i){
-            for(int j = 0; j< clients.size(); ++j){
-                System.out.print(costMatrix[i][j] + " ");
-            }
-            System.out.println();
-        }
-
+     * Przesyła wiadomość z informacją o statusie sieci do przypisanego nadzorcy.
+     */
+    private void sendStatus(Status.StatusType statusType) {
+        Status msg = new Status(getSelf(), statusType);
+        networkSupervisor.tell(msg, getSelf());
     }
-    */
 
-    private double[][] calculateCostMatrix(List<ActorRef> cList){
+    /*
+     * Na postastawie wiadomości otrzymanych od klientów uzupełnia wewnętrzne listy
+     * klientów oraz ich położeń, które pozwalają na skonstruowanie macierzy kosztów.
+     */
+    private void receiveLocation(Location msg) {
+        clients.add(msg.getSender());
+        xLocation.add(msg.getX());
+        yLocation.add(msg.getY());
+    }
+
+    private double[][] calculateCostMatrix(List<ActorRef> cList) {
         double[][] cm = new double[cList.size()][cList.size()];
 
         List<ActorRef> tmpClients;
@@ -113,14 +99,14 @@ public class Network extends AbstractActor{
         return cm;
     }
 
-    private void sendCostMatrix(CostMatrix msg){
+    private void sendCostMatrix(CostMatrix msg) {
         double[][] cm = calculateCostMatrix(msg.getClients());
         CostMatrix cmMsg = new CostMatrix(getSelf(),null, cm);
         networkSupervisor.tell(cmMsg, getSelf());
     }
 
     @Override
-    public void preStart(){
+    public void preStart() {
         /*
         getContext().getSystem().scheduler().schedule(
                 Duration.create(2, TimeUnit.SECONDS), // Initial delay 2 seconds
@@ -139,7 +125,6 @@ public class Network extends AbstractActor{
 		return receiveBuilder()
                 .match(Location.class, this::receiveLocation)
                 .match(CostMatrix.class, this::sendCostMatrix)
-                //.matchEquals("createCostMatrix", m -> calculateCostMatrix())
                 .build();
 	}
 
