@@ -16,18 +16,33 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Aktor reprezentujący nadzorcę. Komunikuje się z sieciami przesyłowymi w celu uzyskania
+ * macierzy odległości, które później wykorzystuje do wyznaczenia macierzy kosztów
+ * i przygotowania planu dostaw. Zbiera w tym celu oferty od powiązanych klientów,
+ * a po ustaleniu planu, przesyła im potwierdzenia.
+ */
 public class Supervisor extends AbstractActor {
 
+    // Nadzorca przechowuje listę ofert, zawierających informacje o klientach
+    // oraz ofertach, jakie zgłosili, obejmujących ich zapotrzebowanie i produkcję medium.
     private List<ClientOffer> clientOffers = new ArrayList<>();
     private ActorRef network;
     private double[][] costMatrix, supplyPlan;
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
-
+    /**
+     * Klasa konfigurująca określająca sposób tworzenia aktora klasy Supervisor.
+     * @return Obiekt konfiguracji aktora nadzorcy.
+     */
     static public Props props() {
         return Props.create(Supervisor.class, Supervisor::new);
     }
 
+    /*
+     * Reakcja na otrzymanie od sieci gotowej macierzy odległości. Na jej podstawie
+     * oraz na podstawie zgromadzonych ofert wyznaczany jest plan dostaw.
+     */
     private void receiveCostMatrix(final AnnounceCostMatrix cm) {
 
     }
@@ -120,6 +135,10 @@ public class Supervisor extends AbstractActor {
 
     }*/
 
+    /*
+     * Zgłasza do sieci zapotrzebowanie na macierz odległości pomiędzy klientami
+     * w celu wyznaczenia macierzy kosztów przesyłu.
+     */
     private void createSupplyPlan() {
         int n = clientOffers.size();
         System.out.println("N = " + n);
@@ -166,6 +185,10 @@ public class Supervisor extends AbstractActor {
            */
     }
 
+    /*
+     * Reakcja na otrzymanie oferty od klienta. Nadzorca po przyjęciu oferty
+     * przesyła klientowi potwierdzenie.
+     */
     private void receiveOffer(Offer msg) {
         log.info(this.sender() + " " + msg.demand + " " + msg.production);
 
@@ -175,12 +198,22 @@ public class Supervisor extends AbstractActor {
         this.sender().tell(status, ActorRef.noSender());
     }
 
+    /*
+     * Reakcja na zadeklarowanie nowej sieci przesyłowej. Nadzorca obejmuje
+     * pieczę nad siecią, która wyśle zgłoszenie.
+     */
     private void receiveStatus(StatusInfo msg) {
         if(msg.status == StatusInfo.StatusType.DECLARE_NETWORK) {
             this.network = this.sender();
         }
     }
 
+    /**
+     * Reaguje na przyjęcie wiadomości od innego aktora zgodnie z zadanymi wzorcami zachowań.
+     * Nadzorca jest przygotowany na otrzymywanie ofert od klienta oraz zgłoszeń od sieci.
+     * Ponadto odbiera macierze odległości przesyłane przez sieci.
+     * @return Sposób zachowania aktora w obliczu otrzymania wiadomości konkretnego rodzaju.
+     */
     @Override
     public Receive createReceive() {
         return receiveBuilder()
