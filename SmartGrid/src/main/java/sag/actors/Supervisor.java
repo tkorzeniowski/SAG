@@ -5,24 +5,22 @@ import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
-import sag.messages.RequestCostMatrix;
-import sag.model.CostMatrix;
+import sag.messages.AnnounceCostMatrix;
 import sag.messages.Offer;
+import sag.messages.RequestCostMatrix;
 import sag.messages.StatusInfo;
+import sag.model.ClientOffer;
 import scala.concurrent.duration.Duration;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-public class Supervisor extends AbstractActor{
+public class Supervisor extends AbstractActor {
 
-    private List<ActorRef> clients = new ArrayList<>();
-    private List<Double> demands = new ArrayList<>();
-    private List<Double> production = new ArrayList<>();
+    private List<ClientOffer> clientOffers = new ArrayList<>();
     private ActorRef network;
     private double[][] costMatrix, supplyPlan;
-    private int N = 0;
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
 
@@ -30,7 +28,7 @@ public class Supervisor extends AbstractActor{
         return Props.create(Supervisor.class, Supervisor::new);
     }
 
-    private void receiveCostMatrix(final CostMatrix cm) {
+    private void receiveCostMatrix(final AnnounceCostMatrix cm) {
 
     }
 
@@ -123,29 +121,24 @@ public class Supervisor extends AbstractActor{
     }*/
 
     private void createSupplyPlan() {
-        N = clients.size();
-        System.out.println("N = " + N);
-        int i = 0;
+        int n = clientOffers.size();
+        System.out.println("N = " + n);
         System.out.println("Otrzymałem następujące oferty:");
-        for (ActorRef client: clients) {
-            System.out.println(clients.get(i) + " " + demands.get(i) + " " + production.get(i));
-            ++i;
+        for (ClientOffer co: clientOffers) {
+            System.out.println(co.client() + " " + co.demand() + " " + co.production());
         }
-
         network.tell(new RequestCostMatrix(), getSelf()); // ask for cost matrix
     }
 
     private void sendSupplyPlan() {
-        int k = 0;
-        for (ActorRef actor: clients) {
-            double demand = 0;
-            for (int i = 0; i < N; ++i){
+        int n = clientOffers.size();
+        for (int k = 0; k < n; ++k) {
+            double demand = 0.0f;
+            for (int i = 0; i < n; ++i) {
                 demand += supplyPlan[i][k];
             }
-            ++k;
-
             Offer msg = new Offer(demand, 0.0);
-            actor.tell(msg, actor);
+            clientOffers.get(k).client().tell(msg, getSelf()); // tu zmieniłam nadawcę na nadzorcę zamiast klienta
         }
     }
 
@@ -176,17 +169,14 @@ public class Supervisor extends AbstractActor{
     private void receiveOffer(Offer msg) {
         log.info(this.sender() + " " + msg.demand + " " + msg.production);
 
-        clients.add(this.sender());
-        demands.add(msg.demand);
-        production.add(msg.production);
+        clientOffers.add(new ClientOffer(this.sender(), msg.demand, msg.production));
 
         StatusInfo status = new StatusInfo(StatusInfo.StatusType.OFFER_ACK);
         this.sender().tell(status, ActorRef.noSender());
-
     }
 
     private void receiveStatus(StatusInfo msg) {
-        if(msg.status == StatusInfo.StatusType.DECLARE_NETWORK){
+        if(msg.status == StatusInfo.StatusType.DECLARE_NETWORK) {
             this.network = this.sender();
         }
     }
@@ -198,8 +188,7 @@ public class Supervisor extends AbstractActor{
             .match(StatusInfo.class, this::receiveStatus)
             .matchEquals("createSupplyPlan", m -> createSupplyPlan())
             .matchEquals("sendSupplyPlan", m -> sendSupplyPlan())
-            .match(CostMatrix.class, this::receiveCostMatrix)
+            .match(AnnounceCostMatrix.class, this::receiveCostMatrix)
             .build();
     }
-
 }
