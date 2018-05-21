@@ -12,7 +12,7 @@ public class ClientLocation {
         this.location = location;
     }
 
-    public ClientLocation(ActorRef client, double x, double y){
+    public ClientLocation(ActorRef client, double x, double y) {
         this.client = client;
         this.location = new Pair<>(x,y);
     }

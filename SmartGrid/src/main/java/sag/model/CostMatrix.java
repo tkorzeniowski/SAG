@@ -8,29 +8,36 @@ import java.util.ArrayList;
  */
 public class CostMatrix {
 
-    public final double[][] costMatrix;
+    public final double[] costVector;
 
     /**
      * Konstruktor macierzy odległości, wyznaczanych na podstawie położeń klientów.
      * @param locations Lista klientów oraz ich lokacji.
      */
     public CostMatrix(final ArrayList<ClientLocation> locations) {
-        int noClients = locations.size();
-        double[][] cm = new double[noClients][noClients];
+        int n = locations.size();
+        costVector = new double[n*n];
 
-        for (int row = 0; row < noClients; ++row) {
-            for (int col = 0; col < noClients; ++col) {
+        for (int row = 0; row < n; ++row) {
+            for (int col = 0; col < n; ++col) {
                 if (row < col) {
-                    cm[row][col] = distance(locations.get(row), locations.get(col));
-                    cm[col][row] = cm[row][col];
+                    costVector[row*n + col] = distance(locations.get(row), locations.get(col));
                 } else if (row == col) {
-                    cm[row][col] = 0.0;
+                    costVector[row*n + col] = 0.0;
+                } else {
+                    costVector[row*n+col] = costVector[col*n + row];
                 }
             }
         }
-
-        costMatrix = cm;
     }
+
+    public CostMatrix(final double[] costVector) {
+        this.costVector = costVector;
+    }
+
+    public int clientsNumber() {
+        return (int) Math.sqrt(costVector.length);
+    };
 
     /*
      * Oblicza odległość euclidesową na płaszczyźnie.
@@ -38,4 +45,5 @@ public class CostMatrix {
     private double distance(final ClientLocation first, final ClientLocation second) {
         return Math.sqrt(Math.pow(first.x() - second.x(), 2) + Math.pow(first.y() - second.y(), 2));
     }
+
 }
