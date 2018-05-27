@@ -39,11 +39,14 @@ public class CostMatrix {
         return (int) Math.sqrt(costVector.length);
     };
 
+    public static CostMatrix empty() {
+        return new CostMatrix(new double[0]);
+    }
+
     /*
      * Oblicza odległość euclidesową na płaszczyźnie.
      */
     private double distance(final ClientLocation first, final ClientLocation second) {
         return Math.sqrt(Math.pow(first.x() - second.x(), 2) + Math.pow(first.y() - second.y(), 2));
     }
-
 }

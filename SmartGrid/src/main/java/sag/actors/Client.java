@@ -5,10 +5,9 @@ import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
-
-import sag.messages.StatusInfo;
-import sag.model.ClientLocation;
+import sag.messages.AnnounceLocation;
 import sag.messages.Offer;
+import sag.messages.StatusInfo;
 
 /**
  * Aktor reprezentujący klienta. Nie rozróżnia konsumenta od producenta, może bowiem zarówno
@@ -62,9 +61,8 @@ public class Client extends AbstractActor {
      * Przesyła sieci wiadomość o swoim położeniu.
      */
     private void sendLocation(ActorRef recepient) {
-        ClientLocation msg = new ClientLocation(getSelf(), xCoord, yCoord);
-        log.info("myLocationIs: (" + msg.x() + ", " + msg.y() + ")");
-        recepient.tell(msg, getSelf());
+        log.info("myLocationIs: (" + xCoord + ", " + yCoord + ")");
+        recepient.tell(new AnnounceLocation(xCoord, yCoord), getSelf());
     }
 
     /*

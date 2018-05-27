@@ -10,6 +10,8 @@ import sag.messages.Offer;
 import sag.messages.RequestCostMatrix;
 import sag.messages.StatusInfo;
 import sag.model.ClientOffer;
+import sag.model.CostMatrix;
+import sag.utils.SupplyPlanOptimizer;
 import scala.concurrent.duration.Duration;
 
 import java.util.ArrayList;
@@ -28,7 +30,7 @@ public class Supervisor extends AbstractActor {
     // oraz ofertach, jakie zgłosili, obejmujących ich zapotrzebowanie i produkcję medium.
     private List<ClientOffer> clientOffers = new ArrayList<>();
     private ActorRef network;
-    private double[][] costMatrix, supplyPlan;
+    private CostMatrix supplyPlan;
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
     /**
@@ -44,96 +46,8 @@ public class Supervisor extends AbstractActor {
      * oraz na podstawie zgromadzonych ofert wyznaczany jest plan dostaw.
      */
     private void receiveCostMatrix(final AnnounceCostMatrix cm) {
-
+        supplyPlan = SupplyPlanOptimizer.optimize(cm.costMatrix, clientOffers);
     }
-
-    /**private void amplDemo(CostMatrix cm){
-        AMPL ampl = new AMPL();
-
-        ClassLoader classLoader = getClass().getClassLoader();
-
-        try {
-            ampl.reset();
-            String modelFile = new File(classLoader.getResource("SmartGridModel.mod").getFile()).getAbsolutePath();
-            ampl.read(modelFile);
-
-            // --------------------------------
-            //String dataFile = new File(classLoader.getResource("SmartGridData.dat").getFile()).getAbsolutePath();
-            //ampl.readData(dataFile);
-
-            // --------------------------------
-            // set model parameters
-            Parameter x = ampl.getParameter("N");
-            x.setValues(N);
-
-            x = ampl.getParameter("dem");
-            x.setValues(demands.toArray());
-
-            x = ampl.getParameter("prod");
-            x.setValues(production.toArray());
-
-
-            costMatrix = cm.getCostMatrix();
-            System.out.println("Otrzymana macierz kosztów");
-            for(int i=0; i<N; ++i){
-                for(int j=0; j<N; ++j){
-                    System.out.print(costMatrix[i][j] + " ");
-                }
-                System.out.println();
-            }
-            // convert matrix to vector
-            double[] costMatrixVector = new double[N*N];
-            System.arraycopy(costMatrix[0], 0, costMatrixVector, 0, costMatrix[0].length);
-
-            for(int i=0; i<(N-1); ++i){ // N-1
-                System.arraycopy(costMatrix[i+1], 0, costMatrixVector, costMatrix[i].length, costMatrix[i+1].length);
-            }
-
-            x = ampl.getParameter("cTransp");
-            x.setValues(costMatrixVector);
-
-            // --------------------------------
-            ampl.solve(); // solve model to get supply plan
-
-        } catch (java.io.IOException e){
-            System.out.println("File not found!");
-        }
-
-        if(ampl.getObjective("f_celu").value() == 0){
-            System.out.println("Brak rozwiązania! ograniczenia niespełnione");
-        } else {
-            Variable v = ampl.getVariable("xTransp");
-            //System.out.println(ampl.getParameter("prod").getValues());
-            //System.out.print(v.getValues());
-
-            double[] valColumn = v.getValues().getColumnAsDoubles("val"); // values of xTransp
-
-            //System.out.println(valColumn[1]);
-
-            // convert model results to supply plan
-            supplyPlan = new double[N][N];
-            int index=0;
-            for(int i=0; i<N; ++i){
-                supplyPlan[i] = new double[N];
-                for(int j=0; j<N; ++j) {
-                    supplyPlan[i][j] = valColumn[index];
-                    ++index;
-                }
-            }
-
-            System.out.println("Supply plan:");
-            for(int i=0; i<N; ++i){
-                for(int j=0; j<N; ++j){
-                    System.out.print(supplyPlan[i][j] + " ");
-                }
-                System.out.println();
-            }
-
-            sendSupplyPlan(); // inform clients
-
-        }
-
-    }*/
 
     /*
      * Zgłasza do sieci zapotrzebowanie na macierz odległości pomiędzy klientami
@@ -150,15 +64,15 @@ public class Supervisor extends AbstractActor {
     }
 
     private void sendSupplyPlan() {
-        int n = clientOffers.size();
-        for (int k = 0; k < n; ++k) {
-            double demand = 0.0f;
-            for (int i = 0; i < n; ++i) {
-                demand += supplyPlan[i][k];
-            }
-            Offer msg = new Offer(demand, 0.0);
-            clientOffers.get(k).client().tell(msg, getSelf()); // tu zmieniłam nadawcę na nadzorcę zamiast klienta
-        }
+//        int n = clientOffers.size();
+//        for (int k = 0; k < n; ++k) {
+//            double demand = 0.0f;
+//            for (int i = 0; i < n; ++i) {
+//                demand += 0.0; //supplyPlan[i][k];
+//            }
+//            Offer msg = new Offer(demand, 0.0);
+//            clientOffers.get(k).client().tell(msg, getSelf()); // tu zmieniłam nadawcę na nadzorcę zamiast klienta
+//        }
     }
 
     @Override
