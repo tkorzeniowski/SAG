@@ -7,11 +7,6 @@ public class ClientOffer {
     private ActorRef client;
     private Pair<Double, Double> offer;
 
-    public ClientOffer(ActorRef client, Pair<Double, Double> offer) {
-        this.client = client;
-        this.offer = offer;
-    }
-
     public ClientOffer(ActorRef client, double demand, double production) {
         this.client = client;
         this.offer = new Pair<>(demand, production);
