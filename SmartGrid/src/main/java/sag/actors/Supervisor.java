@@ -143,5 +143,7 @@ public class Supervisor extends AbstractActor {
                     + supplyPlan.sent(i)
             );
         }
+        supplyPlan = CostMatrix.empty();
+        clientOffers = new ArrayList<>();
     }
 }

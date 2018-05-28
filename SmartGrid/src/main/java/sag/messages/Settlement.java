@@ -7,10 +7,10 @@ package sag.messages;
  * b) ile mudium udało się przesłać pozostałym klientom w sieci.
  */
 public class Settlement {
-    public final double mediumReceived, mediumToSend;
+    public final double mediumReceived, mediumSent;
 
     public Settlement(double received, double sent) {
         this.mediumReceived = received;
-        this.mediumToSend = sent;
+        this.mediumSent = sent;
     }
 }

@@ -7,6 +7,7 @@ import akka.event.Logging;
 import akka.event.LoggingAdapter;
 import sag.messages.AnnounceLocation;
 import sag.messages.Offer;
+import sag.messages.Settlement;
 import sag.messages.StatusInfo;
 
 /**
@@ -31,8 +32,15 @@ public class Client extends AbstractActor {
      * @param network Aktor sieci, do której należy klient.
      * @return Obiekt konfiguracji aktora sieci.
      */
-    static public Props props(double demand, double production, double x, double y, ActorRef supervisor, ActorRef network) {
-        return Props.create(Client.class, () -> new Client(demand, production, x, y, supervisor, network));
+    static public Props props(double demand,
+                              double production,
+                              double x,
+                              double y,
+                              ActorRef supervisor,
+                              ActorRef network) {
+
+        return Props.create(Client.class, () ->
+            new Client(demand, production, x, y, supervisor, network));
     }
 
     /**
@@ -45,7 +53,13 @@ public class Client extends AbstractActor {
      * @param supervisor Przypisany klientowi nadzorca.
      * @param network Sieć, do której należy klient.
      */
-    public Client(double demand, double production, double x, double y, ActorRef supervisor, ActorRef network) {
+    private Client(double demand,
+                   double production,
+                   double x,
+                   double y,
+                   ActorRef supervisor,
+                   ActorRef network) {
+
         this.demand = demand;
         this.production = production;
         this.xCoord = x;
@@ -78,10 +92,10 @@ public class Client extends AbstractActor {
      * Reakcja na transakcję.
      * TODO - zastanowić się i uzupełnić, być może zmienić nazwę
      */
-    private void receiveSupply(Offer msg) {
-        log.info(this.sender() + " " + msg.demand + " " + msg.production);
-        this.production -= msg.production;
-        this.demand -= msg.demand;
+    private void settle(Settlement msg) {
+        //log.info(this.sender() + " " + msg.mediumReceived + " " + msg.mediumSent);
+        this.production -= msg.mediumSent;
+        this.demand -= msg.mediumReceived;
         log.info("Client demand after = " + this.demand);
     }
 
@@ -112,7 +126,7 @@ public class Client extends AbstractActor {
     @Override
     public Receive createReceive() {
         return receiveBuilder()
-                .match(Offer.class, this::receiveSupply)
+                .match(Settlement.class, this::settle)
                 .match(StatusInfo.class, this::receiveStatus)
                 .build();
     }
