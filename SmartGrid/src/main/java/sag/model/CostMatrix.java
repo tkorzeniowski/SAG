@@ -9,8 +9,8 @@ import java.util.stream.IntStream;
  */
 public class CostMatrix {
 
-    public final double[] costVector;
-
+    //public final double[] costVector;
+	public double[] costVector;
     /**
      * Konstruktor macierzy odległości, wyznaczanych na podstawie położeń klientów.
      * @param locations Lista klientów oraz ich lokacji.
@@ -24,7 +24,7 @@ public class CostMatrix {
                 if (row < col) {
                     costVector[row*n + col] = distance(locations.get(row), locations.get(col));
                 } else if (row == col) {
-                    costVector[row*n + col] = 0.0;
+                    costVector[row*n + col] = 2.E+8;
                 } else {
                     costVector[row*n+col] = costVector[col*n + row];
                 }
@@ -96,4 +96,13 @@ public class CostMatrix {
     private double distance(final ClientLocation first, final ClientLocation second) {
         return Math.sqrt(Math.pow(first.x() - second.x(), 2) + Math.pow(first.y() - second.y(), 2));
     }
+	public void printCostMatrix(){
+        int n = (int) Math.sqrt(costVector.length);
+        for(int i = 0; i<n; ++i){
+            for(int j = 0; j<n; ++j){
+                System.out.print(costVector[i+n*j] + " ");
+            }
+            System.out.println();
+        }
+    }							  
 }

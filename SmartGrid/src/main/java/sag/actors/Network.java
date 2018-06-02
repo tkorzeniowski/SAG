@@ -3,6 +3,8 @@ package sag.actors;
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
+import akka.event.Logging;
+import akka.event.LoggingAdapter;
 import sag.messages.AnnounceCostMatrix;
 import sag.messages.AnnounceLocation;
 import sag.messages.RequestCostMatrix;
@@ -23,6 +25,7 @@ public class Network extends AbstractActor {
     // oraz ich położeń, początkowo puste.
     private ArrayList<ClientLocation> locations = new ArrayList<>();
     private ActorRef networkSupervisor;
+    private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
     /**
      * Klasa konfigurująca określająca sposób tworzenia aktora klasy Network.
@@ -55,31 +58,42 @@ public class Network extends AbstractActor {
      * klientów oraz ich położeń, które pozwalają na skonstruowanie macierzy kosztów.
      */
     private void receiveLocation(AnnounceLocation msg) {
-        locations.add(new ClientLocation(this.sender(), msg.location));
+        boolean senderExists = false;
+        for(ClientLocation cl : locations){
+            if(cl.getClient() == this.sender()){
+                senderExists = true;
+                break;
+            }
+        }
+        if(!senderExists) {
+
+            locations.add(new ClientLocation(this.sender(), msg.location));
+        }
     }
 
     /*
      * Tworzy i wysyła macierz kosztów do przypisanego nadzorcy.
      */
     private void sendCostMatrix(RequestCostMatrix rcm) {
-        CostMatrix cm = new CostMatrix(locations);
+        ArrayList<ActorRef> clientOffers = rcm.getClients();
+        ArrayList<ClientLocation> orderedLocations = new ArrayList<>();
+
+        for(ActorRef tc : clientOffers){
+            int i = 0;
+            for(ClientLocation loc : locations){
+                if(tc.compareTo(loc.getClient()) == 0){
+                    orderedLocations.add(loc);
+                    break;
+                }
+                ++i;
+            }
+        }
+
+        CostMatrix cm = new CostMatrix(orderedLocations);
         AnnounceCostMatrix msg = new AnnounceCostMatrix(cm);
         networkSupervisor.tell(msg, getSelf());
     }
 
-    @Override
-    public void preStart() {
-        /*
-        getContext().getSystem().scheduler().schedule(
-                Duration.create(2, TimeUnit.SECONDS), // Initial delay 2 seconds
-                Duration.create(0, TimeUnit.SECONDS),     // Frequency 0 seconds
-                super.getSelf(), // Send the message to itself
-                "createCostMatrix",
-                getContext().getSystem().dispatcher(),
-                null
-        );
-        */
-    }
 
     /**
      * Reaguje na przyjęcie wiadomości od innego aktora zgodnie z zadanymi wzorcami zachowań.

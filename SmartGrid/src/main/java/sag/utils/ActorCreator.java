@@ -1,21 +1,27 @@
 package sag.utils;
 
-import akka.actor.ActorRef;
-import akka.actor.ActorSystem;
+import akka.actor.*;
 import akka.japi.Pair;
+import akka.japi.pf.DeciderBuilder;
 import sag.actors.Client;
 import sag.actors.Network;
 import sag.actors.Supervisor;
+import sag.messages.StatusInfo;
+import scala.concurrent.duration.Duration;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static akka.actor.SupervisorStrategy.*;
 
 /**
  * Klasa pomocnicza pozwalająca na wczytywanie z plików aktorów konkretnego typu.
  */
+//public class ActorCreator extends AbstractActor {
 public class ActorCreator {
     private ActorSystem actorSystem;
     private ClassLoader classLoader = ActorCreator.class.getClassLoader();
@@ -31,9 +37,23 @@ public class ActorCreator {
      */
     public Map<String, ActorRef> createSupervisors(final String fileName) {
         Stream<String> lines = resourceLines(fileName);
+        /*
         return lines
             .map(name -> new Pair<>(name, actorSystem.actorOf(Supervisor.props(), name)))
             .collect(Collectors.toMap(Pair::first, Pair::second));
+        */
+        return lines
+                .map(line -> line.split(" "))
+                .map(parts -> {
+                    String supervisorName = parts[0];
+                    Double xCoord = Double.parseDouble(parts[1]);
+                    Double yCoord = Double.parseDouble(parts[2]);
+                    return new Pair<>(
+                            supervisorName,
+                            actorSystem.actorOf(Supervisor.props(xCoord, yCoord), supervisorName)
+                    );
+                })
+                .collect(Collectors.toMap(Pair::first, Pair::second));
     }
 
     /**

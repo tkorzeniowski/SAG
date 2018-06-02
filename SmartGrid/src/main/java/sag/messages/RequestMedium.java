@@ -6,11 +6,12 @@ package sag.messages;
  * a) ile medium otrzyma klient,
  * b) ile mudium udało się przesłać pozostałym klientom w sieci.
  */
-public class Settlement {
-    public final double mediumReceived, mediumSent;
+public class RequestMedium {
+    public boolean returnMedium; // false - przyjęcie oferty, true - zwrot nadmiaru
+    public final double offer;
 
-    public Settlement(double received, double sent) {
-        this.mediumReceived = received;
-        this.mediumSent = sent;
+    public RequestMedium(double offer, boolean returnMedium) {
+        this.offer = offer;
+        this.returnMedium = returnMedium;
     }
 }

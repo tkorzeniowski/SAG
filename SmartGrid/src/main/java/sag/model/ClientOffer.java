@@ -15,4 +15,8 @@ public class ClientOffer {
     public ActorRef client() { return client; }
     public double demand() { return offer.first(); }
     public double production() { return offer.second(); }
+    public void setOffer(double demand, double production){
+        offer = null;
+        offer = new Pair<>(demand, production);
+    }
 }

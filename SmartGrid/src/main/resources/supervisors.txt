@@ -1,2 +1,2 @@
-supervisor1
-supervisor2
+supervisor1 0 0
+supervisor2 1 1

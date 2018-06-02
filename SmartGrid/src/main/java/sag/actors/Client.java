@@ -2,13 +2,20 @@ package sag.actors;
 
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
+import akka.actor.ActorSelection;
 import akka.actor.Props;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
 import sag.messages.AnnounceLocation;
 import sag.messages.Offer;
-import sag.messages.Settlement;
+//import sag.messages.RequestMedium;
 import sag.messages.StatusInfo;
+import scala.concurrent.duration.Duration;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;										  								 
 
 /**
  * Aktor reprezentujący klienta. Nie rozróżnia konsumenta od producenta, może bowiem zarówno
@@ -18,7 +25,7 @@ import sag.messages.StatusInfo;
  */
 public class Client extends AbstractActor {
 
-    private double demand, production, xCoord, yCoord;
+    private double demand, production, sentDemand, sentProduction, xCoord, yCoord;
     private final ActorRef clientSupervisor, network;
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
@@ -68,7 +75,6 @@ public class Client extends AbstractActor {
         this.network = network;
 
         sendLocation(this.network); // inform network that new client appeared
-        sendOffer();
     }
 
     /*
@@ -83,20 +89,29 @@ public class Client extends AbstractActor {
      * Przesyła ofertę swojemu nadzorcy na podstawie swojego zapotrzebowania i produkcji medium.
      */
     private void sendOffer() {
-        Offer msg = new Offer(demand, production);
+
+        if(production > 0){
+            sentProduction = ThreadLocalRandom.current().nextDouble(production*0.95, production*1.05);
+        }
+        if(demand > 0){
+            sentDemand = ThreadLocalRandom.current().nextDouble(demand*0.95, demand*1.05);
+            if(sentDemand <= sentProduction){
+                sentDemand -= sentProduction;
+            }
+        }
+
+        Offer msg = new Offer(sentDemand, sentProduction);
+
         log.info("stateOffer: dem-" + msg.demand + " , prod-" + msg.production);
         clientSupervisor.tell(msg, getSelf());
     }
 
     /*
-     * Reakcja na transakcję.
-     * TODO - zastanowić się i uzupełnić, być może zmienić nazwę
+     * Reakcja na wiadomość o planowanej dostawie medium od nadzorcy.
      */
-    private void settle(Settlement msg) {
-        //log.info(this.sender() + " " + msg.mediumReceived + " " + msg.mediumSent);
-        this.production -= msg.mediumSent;
-        this.demand -= msg.mediumReceived;
-        log.info("Client demand after = " + this.demand);
+	private void receiveSupply(Offer msg) {
+        //log.info(this.sender() + " " + msg.demand + " " + msg.production);
+        log.info("Client demand after = " + (this.sentDemand - msg.demand));
     }
 
     /*
@@ -113,8 +128,27 @@ public class Client extends AbstractActor {
         if(status.status == StatusInfo.StatusType.SEND_LOCATION) {
             sendLocation(this.sender());
         }
+
+        if(status.status == StatusInfo.StatusType.GET_NEIGHBOURS) {
+            // do nothig, otherwise endless loop of messages
+        }
     }
 
+    /*
+    * Wysyłanie wiadomości z ustaloną częstotliwością
+    */
+	@Override
+    public void preStart() {
+        getContext().getSystem().scheduler().schedule(
+                Duration.create(100, TimeUnit.MILLISECONDS), // Initial delay 100 milliseconds
+                Duration.create(5, TimeUnit.SECONDS),     // Frequency 5 seconds
+                super.getSelf(), // Send the message to itself
+                "sendOffer",
+                getContext().getSystem().dispatcher(),
+                null
+        );
+    }
+	
     /**
      * Reaguje na przyjęcie wiadomości od innego aktora zgodnie z zadanymi wzorcami zachowań.
      * Klient jest przygotowany jedynie na otrzymywanie potwierdzeń przyjęcia oferty
@@ -126,8 +160,9 @@ public class Client extends AbstractActor {
     @Override
     public Receive createReceive() {
         return receiveBuilder()
-                .match(Settlement.class, this::settle)
+				.match(Offer.class, this::receiveSupply)
                 .match(StatusInfo.class, this::receiveStatus)
+				.matchEquals("sendOffer", m -> sendOffer())
                 .build();
     }
 }

@@ -29,7 +29,7 @@ public class SupplyPlanOptimizer {
     public static CostMatrix optimize(final CostMatrix costMat, final List<ClientOffer> offers) {
 
         final int n = costMat.clientsNumber();
-
+        System.out.println("Wyznaczam plan dla klientow " + n);
         // Nie optymalizuj, jeżeli nie ma czego.
         if (n == 0) {
             return CostMatrix.empty();
@@ -42,6 +42,7 @@ public class SupplyPlanOptimizer {
         or.setG(generateG(n));
         or.setH(generateH(offers));
         or.setLb(new double[n*n]);
+		or.setTolerance(1.E-12);						
 
         // Wybór metody optymalizacji.
         LPPrimalDualMethod opt = new LPPrimalDualMethod();
@@ -52,7 +53,8 @@ public class SupplyPlanOptimizer {
             opt.optimize();
         } catch (JOptimizerException exc) {
             // Tymczasowo do testów
-            throw new RuntimeException(exc.getMessage());
+            //throw new RuntimeException(exc.getMessage());
+			return CostMatrix.empty();						  
             // TODO: Obsłużyć sytuację niespełniania ograniczeń, bo na razie tylko rzucamy błąd.
         }
 
