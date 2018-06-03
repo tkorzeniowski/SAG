@@ -8,6 +8,7 @@ import sag.actors.SupervisorsMaster;
 import sag.messages.StatusInfo;
 import sag.utils.ActorCreator;
 
+import java.io.IOException;
 import java.util.Map;
 
 public class SmartGrid {
@@ -17,19 +18,27 @@ public class SmartGrid {
         final ActorRef deadLetterMonitor = system.actorOf(DeadLetterMonitor.props(), "monitor");
         system.eventStream().subscribe(deadLetterMonitor, DeadLetter.class);
 
-        final ActorRef supervisorsMaster = system.actorOf(SupervisorsMaster.props(), "supervisorsMaster");
+        system.actorOf(SupervisorsMaster.props(), "supervisorsMaster");
 
-        final ActorCreator creator = new ActorCreator(system);
-        final Map<String, ActorRef> supervisors = creator.createSupervisors("supervisors.txt");
-        final Map<String, ActorRef> networks = creator.createNetworks("networks.txt", supervisors);
-        creator.createClients("clients.txt", supervisors, networks);
+        try {
+            final ActorCreator creator = new ActorCreator(system);
+            final Map<String, ActorRef> supervisors = creator.createSupervisors("supervisors.txt");
+            final Map<String, ActorRef> networks = creator.createNetworks("networks.txt", supervisors);
+            creator.createClients("clients.txt", supervisors, networks);
 
-        try{
             Thread.sleep(4000);
-        }catch (InterruptedException ie){
 
+            // symulacja awarii nadzorcy
+            supervisors
+                .get("supervisor1")
+                .tell(new StatusInfo(StatusInfo.StatusType.KILL), ActorRef.noSender());
+        } catch (final IOException exc) {
+            System.out.println(exc.getMessage());
+            system.terminate();
+        } catch (final InterruptedException ie) {
+            System.out.println("Przerwano działanie programu.");
+            system.terminate();
         }
-        // symulacja awarii nadzorcy
-        supervisors.get("supervisor1").tell(new StatusInfo(StatusInfo.StatusType.KILL), ActorRef.noSender());
+
     }
 }

@@ -5,25 +5,23 @@ import akka.japi.Pair;
 
 import java.util.List;
 
-/*
-* Wewnętrzny stan nadzorcy.*/
+/**
+ * Wewnętrzny stan nadzorcy.
+ */
 public class SupervisorState {
     private List<ClientOffer> clientOffers;
-    private ActorRef network, supervisor;
+    private ActorRef network;
     private CostMatrix supplyPlan;
     private Pair<Double, Double> location;
     private List<ClientLocation>  neighbours;
     private List<ActorRef> rejectedMediumRequest;
 
-    public SupervisorState(ActorRef supervisor,
-                           List<ClientOffer> clientOffers,
+    public SupervisorState(List<ClientOffer> clientOffers,
                            List<ClientLocation> neighbours,
                            List<ActorRef> rejectedMediumRequest,
                            ActorRef network,
                            CostMatrix supplyPlan,
                            Pair<Double, Double> location) {
-
-        this.supervisor = supervisor;
         this.clientOffers = clientOffers;
         this.neighbours = neighbours;
         this.rejectedMediumRequest = rejectedMediumRequest;
@@ -32,7 +30,6 @@ public class SupervisorState {
         this.location = location;
     }
 
-    public ActorRef getSupervisor() { return supervisor; }
     public List<ClientOffer> getClientOffers() { return clientOffers; }
     public List<ClientLocation> getNeighbours() { return neighbours; }
     public List<ActorRef> getRejectedMediumRequest() { return rejectedMediumRequest; }

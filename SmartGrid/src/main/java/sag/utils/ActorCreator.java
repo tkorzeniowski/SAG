@@ -1,27 +1,23 @@
 package sag.utils;
 
-import akka.actor.*;
+import akka.actor.ActorRef;
+import akka.actor.ActorSystem;
 import akka.japi.Pair;
-import akka.japi.pf.DeciderBuilder;
 import sag.actors.Client;
 import sag.actors.Network;
 import sag.actors.Supervisor;
-import sag.messages.StatusInfo;
-import scala.concurrent.duration.Duration;
 
 import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import static akka.actor.SupervisorStrategy.*;
 
 /**
  * Klasa pomocnicza pozwalająca na wczytywanie z plików aktorów konkretnego typu.
  */
-//public class ActorCreator extends AbstractActor {
 public class ActorCreator {
     private ActorSystem actorSystem;
     private ClassLoader classLoader = ActorCreator.class.getClassLoader();
@@ -35,25 +31,20 @@ public class ActorCreator {
      * @param fileName Nazwa pliku przechowująca nazwy nadzorców.
      * @return Mapa nazwa-nadzorca.
      */
-    public Map<String, ActorRef> createSupervisors(final String fileName) {
+    public Map<String, ActorRef> createSupervisors(final String fileName) throws IOException {
         Stream<String> lines = resourceLines(fileName);
-        /*
         return lines
-            .map(name -> new Pair<>(name, actorSystem.actorOf(Supervisor.props(), name)))
+            .map(line -> line.split(" "))
+            .map(parts -> {
+                String supervisorName = parts[0];
+                Double xCoord = Double.parseDouble(parts[1]);
+                Double yCoord = Double.parseDouble(parts[2]);
+                return new Pair<>(
+                        supervisorName,
+                        actorSystem.actorOf(Supervisor.props(xCoord, yCoord), supervisorName)
+                );
+            })
             .collect(Collectors.toMap(Pair::first, Pair::second));
-        */
-        return lines
-                .map(line -> line.split(" "))
-                .map(parts -> {
-                    String supervisorName = parts[0];
-                    Double xCoord = Double.parseDouble(parts[1]);
-                    Double yCoord = Double.parseDouble(parts[2]);
-                    return new Pair<>(
-                            supervisorName,
-                            actorSystem.actorOf(Supervisor.props(xCoord, yCoord), supervisorName)
-                    );
-                })
-                .collect(Collectors.toMap(Pair::first, Pair::second));
     }
 
     /**
@@ -62,9 +53,10 @@ public class ActorCreator {
      * @param supervisors Mapa nazwa-nadzorca.
      * @return Mapa nazwa-sieć.
      */
-    public Map<String, ActorRef> createNetworks(final String fileName, final Map<String, ActorRef> supervisors) {
+    public Map<String, ActorRef> createNetworks(final String fileName,
+                                                final Map<String, ActorRef> supervisors) throws IOException {
         Stream<String> lines = resourceLines(fileName);
-         return lines
+        return lines
             .map(line -> line.split(" "))
             .map(pair -> {
                 String networkName = pair[0];
@@ -88,7 +80,7 @@ public class ActorCreator {
      */
     public Map<String, ActorRef> createClients(final String fileName,
                                                final Map<String, ActorRef> supervisors,
-                                               final Map<String, ActorRef> networks) {
+                                               final Map<String, ActorRef> networks) throws IOException {
         Stream<String> lines = resourceLines(fileName);
         return lines
             .map(line -> line.split(" "))
@@ -116,12 +108,11 @@ public class ActorCreator {
             .collect(Collectors.toMap(Pair::first, Pair::second));
     }
 
-    private Stream<String> resourceLines(final String fileName) {
-        return new BufferedReader(
-            new InputStreamReader(
-                classLoader.getResourceAsStream(fileName)
-            )
-        )
-        .lines();
+    private Stream<String> resourceLines(final String fileName) throws IOException {
+        final InputStream is = classLoader.getResourceAsStream(fileName);
+        if (is == null) {
+            throw new IOException("Nie udało się wczytać pliku bądź plik nie istnieje: " + fileName);
+        }
+        return new BufferedReader(new InputStreamReader(is)).lines();
     }
 }

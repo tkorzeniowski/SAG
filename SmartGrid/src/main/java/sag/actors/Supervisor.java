@@ -39,35 +39,40 @@ public class Supervisor extends AbstractActor {
 
     /**
      * Klasa konfigurująca określająca sposób tworzenia aktora klasy Supervisor.
+     * @param x Położenie nadzorcy - współrzędna x.
+     * @param y Położenie nadzorcy - współrzędna y.
      * @return Obiekt konfiguracji aktora nadzorcy.
      */
-    static public Props props(double x,
-                              double y) {
+    static public Props props(double x, double y) {
         return Props.create(Supervisor.class, () -> new Supervisor(x, y));
     }
 
-    public Supervisor (double x, double y){
+    /**
+     * Tworzenie nadzorcy na podstawie współrzędnych. Położenie nadzorcy rozumiane jest niedosłownie,
+     * ale jako położenie głównego węzła w sieci, która podlega danemu nadzorcy.
+     * @param x Położenie nadzorcy - współrzędna x.
+     * @param y Położenie nadzorcy - współrzędna y.
+     */
+    private Supervisor (double x, double y) {
         this.location = new Pair<>(x, y);
-        getContext().actorSelection("../*").tell(new StatusInfo(StatusInfo.StatusType.GET_SUPERVISOR_MASTER), getSelf());
+        getContext()
+            .actorSelection("../*")
+            .tell(new StatusInfo(StatusInfo.StatusType.GET_SUPERVISOR_MASTER), getSelf());
     }
 
     /*
-    * Zapis nadrzędnego nadzorcy by wysyłać mu kopię stanu przed awarią*/
-    private void saveMasterName(){
-        master = this.sender();
-    }
+     * Zapis nadrzędnego nadzorcy, by wysyłać mu kopię stanu przed awarią.
+     */
+    private void saveMaster() { master = this.sender(); }
 
 	/*
      * Reakcja na otrzymanie od sieci gotowej macierzy odległości. Na jej podstawie
      * oraz na podstawie zgromadzonych ofert wyznaczany jest plan dostaw.
      */
     private void receiveCostMatrix(final AnnounceCostMatrix cm) {
-        //System.out.println("Otrzymana macierz kosztow od sieci:");
-        //cm.costMatrix.printCostMatrix();
         supplyPlan = SupplyPlanOptimizer.optimize(cm.costMatrix, clientOffers);										   
-        if(supplyPlan.costVector.length == 0) {
-            System.out.println("nie udalo sie wyznaczyc planu dostaw " + supplyPlan.costVector.length);
-            //supplyPlan.printCostMatrix();
+        if (supplyPlan.costVector.length == 0) {
+            System.out.println("Nie udało się wyznaczyć planu dostaw. Brak klientów.");
             createSupplyPlan();
         }
     }
@@ -94,29 +99,31 @@ public class Supervisor extends AbstractActor {
         log.info("Zaczynam wyznaczać plan: cd= " + currentDemand + " cp= " + currentProduction + " n=" + n);
         if (n > 0 && currentProduction >= currentDemand) {
             network.tell(new RequestCostMatrix(c), getSelf()); // ask for cost matrix
-        }else{
+        } else {
             startNegotiations(); // more medium required from other supervisors
         }
     }
 
     /**
-     * W obszarze brakuje medium, potrzeba rozpoczęcia negocjacji z innymi obszarami
+     * W obszarze brakuje medium, potrzeba rozpoczęcia negocjacji z innymi obszarami.
      */
-    private void startNegotiations(){
-        log.info("rozpoczynam negocjacje");
-        for(ClientLocation neighbour : neighbours){
-            neighbour.getClient().tell(new StatusInfo(StatusInfo.StatusType.REQUEST_MEDIUM), getSelf());
+    private void startNegotiations() {
+        log.info("Rozpoczynam negocjacje");
+        for (ClientLocation neighbour : neighbours) {
+            neighbour
+                .getClient()
+                .tell(new StatusInfo(StatusInfo.StatusType.REQUEST_MEDIUM), getSelf());
         }
     }
 
-    /**
+    /*
      * Wysyłanie medium do innego obszaru
      */
-    private void sendMedium(ActorRef sender){
-        if(currentProduction > currentDemand){
+    private void sendMedium(ActorRef sender) {
+        if (currentProduction > currentDemand) {
             ClientLocation neighbour = null;
-            for(ClientLocation cl : neighbours){
-                if(cl.getClient() == sender){
+            for (ClientLocation cl : neighbours) {
+                if (cl.getClient() == sender) {
                     neighbour = cl;
                     break;
                 }
@@ -126,7 +133,7 @@ public class Supervisor extends AbstractActor {
             clientOffers.add(new ClientOffer(neighbour.getClient(), currentProduction-currentDemand, 0.0 ));
             sender.tell(new RequestMedium(currentProduction-currentDemand, false), getSelf());
             currentDemand = currentProduction;
-        }else {
+        } else {
             sender.tell(new RequestMedium(0.0, false), getSelf());
         }
     }
@@ -136,33 +143,29 @@ public class Supervisor extends AbstractActor {
     * zostaje przyjęte przez nadzorcę lub cześć nadmiarowa zostaje odesłana. Jeśli ilość otrzymanego medium = 0 to
     * nadzorca, który nie może pożyczyć (bezzwrotnie) medium zostaje zapisany. Gdy żaden z nazdorców nie może przesłać
     * medium zostaje podana stosowna informacja.*/
-    private void receiveMedium(RequestMedium requestMedium){
+    private void receiveMedium(RequestMedium requestMedium) {
         log.info("reqMed " + requestMedium.offer + " " + requestMedium.returnMedium);
-        if(requestMedium.offer > 0){
-            for(ClientLocation cl : neighbours){
-                if(cl.getClient() == this.sender()){
+        if (requestMedium.offer > 0) {
+            for (ClientLocation cl : neighbours) {
+                if(cl.getClient() == this.sender()) {
                     network.tell(new AnnounceLocation(cl.getLocation()), cl.getClient());
                     break;
                 }
             }
 
-            if(requestMedium.returnMedium == false){
-                if(currentProduction + requestMedium.offer <= currentDemand ){   // wciąż brakuje medium
-                    log.warning("Wciaz brakuje medium");
+            if (!requestMedium.returnMedium) {
+                if (currentProduction + requestMedium.offer <= currentDemand ) {   // wciąż brakuje medium
+                    log.warning("Wciąż brakuje medium.");
                     clientOffers.add(new ClientOffer(this.sender(), 0.0, requestMedium.offer));
                     currentProduction += requestMedium.offer;
-                }else if(currentProduction + requestMedium.offer > currentDemand){ // dostaliśmy więcej niż potrzebujemy
-                    log.warning("przyszła nadwyzka, oddaję nadmiar");
+                } else if (currentProduction + requestMedium.offer > currentDemand) { // dostaliśmy więcej niż potrzebujemy
+                    log.warning("Przyszła nadwyzka, oddaję nadmiar.");
                     double overproduction = currentProduction + requestMedium.offer - currentDemand;
-                    clientOffers.add(new ClientOffer(this.sender(), 0.0, requestMedium.offer-(0.98*overproduction)));
+                    clientOffers.add(new ClientOffer(this.sender(), 0.0, requestMedium.offer - (0.98 * overproduction)));
                     this.sender().tell(new RequestMedium(0.98*overproduction, true), getSelf());
                     currentProduction = currentDemand;
-
-
                 }
-
-
-            }else if(requestMedium.returnMedium == true) {
+            } else if(requestMedium.returnMedium) {
                 for (ClientOffer co : clientOffers) {
                     if (co.client() == this.sender()) {
                         if (co.demand() == requestMedium.offer) {
@@ -176,14 +179,14 @@ public class Supervisor extends AbstractActor {
             }
             createSupplyPlan();
 
-        }else{
-            if(!rejectedMediumRequest.contains(this.sender())) {
+        } else {
+            if (!rejectedMediumRequest.contains(this.sender())) {
                 rejectedMediumRequest.add(this.sender());
             }
 
             if (rejectedMediumRequest.size() == neighbours.size()) {
                 // call MasterSupervisor or rather accept more neighbours from start
-                log.error("Nie da sie wyznaczyc planu dostaw w moim obszarze");
+                log.error("Nie da sie wyznaczyc planu dostaw w moim obszarze.");
                 log.info(rejectedMediumRequest.toString());
             }
         }
@@ -197,9 +200,9 @@ public class Supervisor extends AbstractActor {
     private void sendSupplyPlan() {
         int n = clientOffers.size();
         supplyPlan.printCostMatrix();
-        for(int k = 0; k < n; ++k){
+        for (int k = 0; k < n; ++k) {
             double demand = 0.0;
-            for(int i = 0; i<n; ++i){
+            for (int i = 0; i<n; ++i) {
                 demand += supplyPlan.costVector[k + n*i];
             }
             Offer msg = new Offer(demand, 0.0);
@@ -208,7 +211,6 @@ public class Supervisor extends AbstractActor {
 
         clientOffers = new ArrayList<>();
     }
-
 
     /**
      * Symulacja okresowości działania nadzorcy.
@@ -256,7 +258,7 @@ public class Supervisor extends AbstractActor {
      * przesyła klientowi potwierdzenie.
      */
     private void receiveOffer(Offer msg) {
-        log.info("otrzymalem oferte " + this.sender() + " " + msg.demand + " " + msg.production);
+        log.info("Otrzymałem ofertę " + this.sender() + " " + msg.demand + " " + msg.production);
 
         boolean supervisorOffer = false;
         for(ClientLocation cl :  neighbours){
@@ -294,12 +296,13 @@ public class Supervisor extends AbstractActor {
         }
     }
 
-
     /**
     * Poszukiwanie sąsiednich nadzorców (z którymi później można negocjować braki medium)
     */
-    private void  getNeighbours(){
-        getContext().actorSelection("../*").tell(new StatusInfo(StatusInfo.StatusType.GET_NEIGHBOURS), getSelf());
+    private void  getNeighbours() {
+        getContext()
+            .actorSelection("../*")
+            .tell(new StatusInfo(StatusInfo.StatusType.GET_NEIGHBOURS), getSelf());
     }
 
     /**
@@ -314,32 +317,32 @@ public class Supervisor extends AbstractActor {
     /**
     * Wybieranie najbliższych sąsiadów
     */
-    private void selectNeighbours(){
+    private void selectNeighbours() {
         List<Double> distance = new ArrayList<>();
-        for(ClientLocation cl : neighbours){
+        for (ClientLocation cl : neighbours) {
             distance.add(Math.sqrt(Math.pow(location.first() - cl.x(), 2) + Math.pow(location.second() - cl.y(), 2)));
             System.out.println("print neighbours " + getSelf() + " " + cl.getClient().toString() + " " + distance.toString());
         }
 
         List<ClientLocation> nn = new ArrayList<>(); // nearest neighbours
         int n = 5; // liczba sąsiadów z którymi będziemy negocjować niedobory medium
-        if(neighbours.size() < 5 ){ // jeśli w systemie jest mniej niż 5 sąsiadów
+        if(neighbours.size() < 5 ) { // jeśli w systemie jest mniej niż 5 sąsiadów
             n = neighbours.size();
         }
-        for(int i = 0; i < n; ++i) {
+        for (int i = 0; i < n; ++i) {
             int minIndex = distance.indexOf(Collections.min(distance));
             nn.add(neighbours.get(minIndex));
             distance.remove(minIndex);
         }
 
-        neighbours = new ArrayList<>();
         neighbours = nn;
         System.out.println(getSelf() + "selected neighbour " + nn.get(0).getClient().toString());
     }
 
     /*
-    * Pobieranie ostatiego stanu zapisanego u mastera (wywoływane tylko przy restarcie nadzorcy)*/
-    private void loadState(SupervisorState state){
+     * Pobieranie ostatiego stanu zapisanego u mastera (wywoływane tylko przy restarcie nadzorcy)
+     */
+    private void loadState(SupervisorState state) {
         this.master = this.sender();
         this.clientOffers = state.getClientOffers();
         this.neighbours = state.getNeighbours();
@@ -347,7 +350,6 @@ public class Supervisor extends AbstractActor {
         this.network = state.getNetwork();
         this.supplyPlan = state.getSupplyPlan();
         this.location = state.getLocation();
-        createSupplyPlan(); // nie zaszkodzi
     }
 
     @Override
@@ -355,15 +357,23 @@ public class Supervisor extends AbstractActor {
         log.info("postRestart");
     }
 
-    /*
-    * Przechowanie stanu u mastera*/
+    /**
+     * Przechowanie stanu u mastera, aby odzyskać go po restarcie.
+     */
     @Override
-    public void preRestart(Throwable reason, Optional<Object> message)
-            throws Exception {
+    public void preRestart(Throwable reason, Optional<Object> message) {
         log.info("preRestart");
-        // Keep the call to postStop(), but no stopping of children
-        //postStop();
-        master.tell(new SupervisorState(getSelf(), clientOffers, neighbours, rejectedMediumRequest, network, supplyPlan, location), getSelf());
+        master.tell(
+            new SupervisorState(
+                clientOffers,
+                neighbours,
+                rejectedMediumRequest,
+                network,
+                supplyPlan,
+                location
+            ),
+            getSelf()
+        );
     }
 
 	/**
@@ -381,7 +391,7 @@ public class Supervisor extends AbstractActor {
                 .matchEquals("sendSupplyPlan", m -> sendSupplyPlan())
                 .matchEquals("getNeighbours", m -> getNeighbours())
                 .matchEquals("selectNeighbours", m -> selectNeighbours())
-                .matchEquals("masterCall", m -> saveMasterName())
+                .matchEquals("masterCall", m -> saveMaster())
                 .match(AnnounceCostMatrix.class, this::receiveCostMatrix)
                 .match(AnnounceLocation.class, this::receiveLocation)
                 .match(RequestMedium.class, this::receiveMedium)

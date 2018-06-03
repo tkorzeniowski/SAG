@@ -3,8 +3,6 @@ package sag.actors;
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
-import akka.event.Logging;
-import akka.event.LoggingAdapter;
 import sag.messages.AnnounceCostMatrix;
 import sag.messages.AnnounceLocation;
 import sag.messages.RequestCostMatrix;
@@ -25,7 +23,6 @@ public class Network extends AbstractActor {
     // oraz ich położeń, początkowo puste.
     private ArrayList<ClientLocation> locations = new ArrayList<>();
     private ActorRef networkSupervisor;
-    private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
     /**
      * Klasa konfigurująca określająca sposób tworzenia aktora klasy Network.
@@ -40,7 +37,7 @@ public class Network extends AbstractActor {
      * Konstruktor klasy sieć. Informuje przypisanego nadzorcę o swoim istnieniu.
      * @param supervisor Aktor nadzorcy przypisany danemu aktorowi sieci.
      */
-    public Network(ActorRef supervisor) {
+    private Network(ActorRef supervisor) {
         this.networkSupervisor = supervisor;
         sendStatus(StatusInfo.StatusType.DECLARE_NETWORK);
     }
@@ -59,14 +56,13 @@ public class Network extends AbstractActor {
      */
     private void receiveLocation(AnnounceLocation msg) {
         boolean senderExists = false;
-        for(ClientLocation cl : locations){
-            if(cl.getClient() == this.sender()){
+        for (ClientLocation cl : locations) {
+            if (cl.getClient() == this.sender()) {
                 senderExists = true;
                 break;
             }
         }
-        if(!senderExists) {
-
+        if (!senderExists) {
             locations.add(new ClientLocation(this.sender(), msg.location));
         }
     }
@@ -78,14 +74,12 @@ public class Network extends AbstractActor {
         ArrayList<ActorRef> clientOffers = rcm.getClients();
         ArrayList<ClientLocation> orderedLocations = new ArrayList<>();
 
-        for(ActorRef tc : clientOffers){
-            int i = 0;
-            for(ClientLocation loc : locations){
-                if(tc.compareTo(loc.getClient()) == 0){
+        for (ActorRef tc : clientOffers) {
+            for (ClientLocation loc : locations) {
+                if (tc.compareTo(loc.getClient()) == 0) {
                     orderedLocations.add(loc);
                     break;
                 }
-                ++i;
             }
         }
 
