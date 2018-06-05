@@ -1,2 +1,5 @@
 network1 supervisor1
 network2 supervisor2
+network3 supervisor3
+network4 supervisor4
+network5 supervisor5
