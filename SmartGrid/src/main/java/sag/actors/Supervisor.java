@@ -4,6 +4,7 @@ import akka.actor.*;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
 import akka.japi.Pair;
+import org.apache.log4j.Logger;
 import sag.messages.*;
 import sag.model.ClientLocation;
 import sag.model.ClientOffer;
@@ -36,6 +37,8 @@ public class Supervisor extends AbstractActor {
     private double currentProduction = 0, currentDemand = 0;
     private List<ActorRef> rejectedMediumRequest = new ArrayList<>();
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
+    private final int MAX_NEIGHBOURS = 2;
+    //private org.apache.log4j.Logger log = Logger.getLogger(Supervisor.class);
 
     /**
      * Klasa konfigurująca określająca sposób tworzenia aktora klasy Supervisor.
@@ -72,7 +75,7 @@ public class Supervisor extends AbstractActor {
     private void receiveCostMatrix(final AnnounceCostMatrix cm) {
         supplyPlan = SupplyPlanOptimizer.optimize(cm.costMatrix, clientOffers);										   
         if (supplyPlan.costVector.length == 0) {
-            System.out.println("Nie udało się wyznaczyć planu dostaw. Brak klientów.");
+            log.info("Nie udało się wyznaczyć planu dostaw.");
             createSupplyPlan();
         }
     }
@@ -86,11 +89,11 @@ public class Supervisor extends AbstractActor {
         currentProduction = 0;
         int n = clientOffers.size();
 
-        log.info("Otrzymałem następujące oferty (" + n + "): ");
+        //log.info("Otrzymałem następujące oferty (" + n + "): ");
 
         ArrayList<ActorRef> c = new ArrayList<>();
         for (ClientOffer co: clientOffers) {
-            System.out.println(getSelf() + " " + co.client() + " " + co.demand() + " " + co.production());
+            //log.info(co.client() + " " + co.demand() + " " + co.production());
             currentDemand += co.demand();
             currentProduction += co.production();
             c.add(co.client());
@@ -144,7 +147,7 @@ public class Supervisor extends AbstractActor {
     * nadzorca, który nie może pożyczyć (bezzwrotnie) medium zostaje zapisany. Gdy żaden z nazdorców nie może przesłać
     * medium zostaje podana stosowna informacja.*/
     private void receiveMedium(RequestMedium requestMedium) {
-        log.info("reqMed " + requestMedium.offer + " " + requestMedium.returnMedium);
+        log.info(this.getSender() + " reqMed " + requestMedium.offer + " " + requestMedium.returnMedium);
         if (requestMedium.offer > 0) {
             for (ClientLocation cl : neighbours) {
                 if(cl.getClient() == this.sender()) {
@@ -156,10 +159,12 @@ public class Supervisor extends AbstractActor {
             if (!requestMedium.returnMedium) {
                 if (currentProduction + requestMedium.offer <= currentDemand ) {   // wciąż brakuje medium
                     log.warning("Wciąż brakuje medium.");
+                    //log.warn("Wciąż brakuje medium.");
                     clientOffers.add(new ClientOffer(this.sender(), 0.0, requestMedium.offer));
                     currentProduction += requestMedium.offer;
                 } else if (currentProduction + requestMedium.offer > currentDemand) { // dostaliśmy więcej niż potrzebujemy
                     log.warning("Przyszła nadwyzka, oddaję nadmiar.");
+                    //log.warn("Przyszła nadwyzka, oddaję nadmiar.");
                     double overproduction = currentProduction + requestMedium.offer - currentDemand;
                     clientOffers.add(new ClientOffer(this.sender(), 0.0, requestMedium.offer - (0.98 * overproduction)));
                     this.sender().tell(new RequestMedium(0.98*overproduction, true), getSelf());
@@ -199,16 +204,19 @@ public class Supervisor extends AbstractActor {
      */
     private void sendSupplyPlan() {
         int n = clientOffers.size();
-        supplyPlan.printCostMatrix();
-        for (int k = 0; k < n; ++k) {
-            double demand = 0.0;
-            for (int i = 0; i<n; ++i) {
-                demand += supplyPlan.costVector[k + n*i];
+        if(supplyPlan.costVector.length == 0){
+            createSupplyPlan();
+        }else {
+            supplyPlan.printCostMatrix();
+            for (int k = 0; k < n; ++k) {
+                double demand = 0.0;
+                for (int i = 0; i < n; ++i) {
+                    demand += supplyPlan.costVector[k + n * i];
+                }
+                Offer msg = new Offer(demand, 0.0);
+                clientOffers.get(k).client().tell(msg, getSelf());
             }
-            Offer msg = new Offer(demand, 0.0);
-            clientOffers.get(k).client().tell(msg, getSelf());
         }
-
         clientOffers = new ArrayList<>();
     }
 
@@ -218,7 +226,7 @@ public class Supervisor extends AbstractActor {
     @Override
     public void preStart() {
         getContext().getSystem().scheduler().scheduleOnce(
-                Duration.create(150, TimeUnit.MILLISECONDS), // Initial delay 150 milliseconds
+                Duration.create(100, TimeUnit.MILLISECONDS), // Initial delay 150 milliseconds
                 super.getSelf(), // Send the message to itself
                 "getNeighbours",
                 getContext().getSystem().dispatcher(),
@@ -234,8 +242,8 @@ public class Supervisor extends AbstractActor {
         );
 
         getContext().getSystem().scheduler().schedule(
-            Duration.create(600, TimeUnit.MILLISECONDS), // Initial delay 500 milliseconds
-            Duration.create(5, TimeUnit.SECONDS),     // Frequency 3 seconds
+            Duration.create(1, TimeUnit.SECONDS), // Initial delay 500 milliseconds
+            Duration.create(6, TimeUnit.SECONDS),     // Frequency 3 seconds
             super.getSelf(), // Send the message to itself
             "createSupplyPlan",
             getContext().getSystem().dispatcher(),
@@ -243,8 +251,8 @@ public class Supervisor extends AbstractActor {
         );
 
         getContext().getSystem().scheduler().schedule(
-                Duration.create(4600, TimeUnit.MILLISECONDS), // Initial delay 500 milliseconds
-                Duration.create(5, TimeUnit.SECONDS),     // Frequency 3 seconds
+                Duration.create(5500, TimeUnit.MILLISECONDS), // Initial delay 500 milliseconds
+                Duration.create(6, TimeUnit.SECONDS),     // Frequency 3 seconds
                 super.getSelf(), // Send the message to itself
                 "sendSupplyPlan",
                 getContext().getSystem().dispatcher(),
@@ -258,7 +266,7 @@ public class Supervisor extends AbstractActor {
      * przesyła klientowi potwierdzenie.
      */
     private void receiveOffer(Offer msg) {
-        log.info("Otrzymałem ofertę " + this.sender() + " " + msg.demand + " " + msg.production);
+
 
         boolean supervisorOffer = false;
         for(ClientLocation cl :  neighbours){
@@ -268,6 +276,7 @@ public class Supervisor extends AbstractActor {
             }
         }
         if(!supervisorOffer) {
+            log.info("Otrzymałem ofertę " + this.sender() + " " + msg.demand + " " + msg.production);
             clientOffers.add(new ClientOffer(this.sender(), msg.demand, msg.production));
 
             StatusInfo status = new StatusInfo(StatusInfo.StatusType.OFFER_ACK);
@@ -292,6 +301,8 @@ public class Supervisor extends AbstractActor {
         }
 
         if(msg.status == StatusInfo.StatusType.KILL) {
+            log.warning("Wykryłem awarię");
+            //log.warn("Wykryłem awarię");
             throw new NullPointerException(); // symulacja awarii
         }
     }
@@ -321,22 +332,24 @@ public class Supervisor extends AbstractActor {
         List<Double> distance = new ArrayList<>();
         for (ClientLocation cl : neighbours) {
             distance.add(Math.sqrt(Math.pow(location.first() - cl.x(), 2) + Math.pow(location.second() - cl.y(), 2)));
-            System.out.println("print neighbours " + getSelf() + " " + cl.getClient().toString() + " " + distance.toString());
+            log.info("print neighbours " + " " + cl.getClient().toString() + " " + distance.toString());
         }
 
         List<ClientLocation> nn = new ArrayList<>(); // nearest neighbours
-        int n = 5; // liczba sąsiadów z którymi będziemy negocjować niedobory medium
-        if(neighbours.size() < 5 ) { // jeśli w systemie jest mniej niż 5 sąsiadów
+        /*
+        int n = 2; // liczba sąsiadów z którymi będziemy negocjować niedobory medium
+        if(neighbours.size() < 2 ) { // jeśli w systemie jest mniej niż 5 sąsiadów
             n = neighbours.size();
         }
-        for (int i = 0; i < n; ++i) {
+        */
+        for (int i = 0; i < MAX_NEIGHBOURS; ++i) {
             int minIndex = distance.indexOf(Collections.min(distance));
             nn.add(neighbours.get(minIndex));
             distance.remove(minIndex);
         }
 
         neighbours = nn;
-        System.out.println(getSelf() + "selected neighbour " + nn.get(0).getClient().toString());
+        //log.info(getSelf() + "selected neighbour " + nn.get(0).getClient().toString());
     }
 
     /*

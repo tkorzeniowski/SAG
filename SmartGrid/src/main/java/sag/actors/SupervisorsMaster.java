@@ -4,6 +4,7 @@ import akka.actor.AbstractActor;
 import akka.actor.Props;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
+import org.apache.log4j.Logger;
 import sag.messages.StatusInfo;
 import sag.model.SupervisorState;
 
@@ -14,6 +15,7 @@ import sag.model.SupervisorState;
  */
 public class SupervisorsMaster extends AbstractActor {
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
+    //private org.apache.log4j.Logger log = Logger.getLogger(Supervisor.class);
 
     static public Props props() {
         return Props.create(SupervisorsMaster.class, SupervisorsMaster::new);

@@ -54,8 +54,7 @@ public class SupplyPlanOptimizer {
         } catch (JOptimizerException exc) {
             // Tymczasowo do testów
             //throw new RuntimeException(exc.getMessage());
-			return CostMatrix.empty();						  
-            // TODO: Obsłużyć sytuację niespełniania ograniczeń, bo na razie tylko rzucamy błąd.
+			return CostMatrix.empty();
         }
 
         // Przesłanie zoptymalizowanej macierzy kosztów.

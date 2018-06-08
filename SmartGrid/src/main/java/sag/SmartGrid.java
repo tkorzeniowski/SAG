@@ -15,8 +15,8 @@ public class SmartGrid {
     public static void main( String[] args ) {
         final ActorSystem system = ActorSystem.create("SmartGridSystem");
 
-        final ActorRef deadLetterMonitor = system.actorOf(DeadLetterMonitor.props(), "monitor");
-        system.eventStream().subscribe(deadLetterMonitor, DeadLetter.class);
+        //final ActorRef deadLetterMonitor = system.actorOf(DeadLetterMonitor.props(), "monitor");
+        //system.eventStream().subscribe(deadLetterMonitor, DeadLetter.class);
 
         system.actorOf(SupervisorsMaster.props(), "supervisorsMaster");
 

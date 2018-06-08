@@ -1,5 +1,2 @@
-supervisor1 2 1
-supervisor2 1 5
-supervisor3 2 9
-supervisor4 5 3
-supervisor5 4 7
+supervisor1 0 0
+supervisor2 1 1

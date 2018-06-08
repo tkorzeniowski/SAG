@@ -6,6 +6,7 @@ import akka.actor.ActorSelection;
 import akka.actor.Props;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
+import org.apache.log4j.Logger;
 import sag.messages.AnnounceLocation;
 import sag.messages.Offer;
 //import sag.messages.RequestMedium;
@@ -28,6 +29,7 @@ public class Client extends AbstractActor {
     private double demand, production, sentDemand, sentProduction, xCoord, yCoord;
     private final ActorRef clientSupervisor, network;
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
+    //private org.apache.log4j.Logger log = Logger.getLogger(Supervisor.class);
 
     /**
      * Klasa konfigurująca określająca sposób tworzenia aktora klasy Client.
@@ -140,8 +142,8 @@ public class Client extends AbstractActor {
 	@Override
     public void preStart() {
         getContext().getSystem().scheduler().schedule(
-                Duration.create(100, TimeUnit.MILLISECONDS), // Initial delay 100 milliseconds
-                Duration.create(5, TimeUnit.SECONDS),     // Frequency 5 seconds
+                Duration.create(200, TimeUnit.MILLISECONDS), // Initial delay 100 milliseconds
+                Duration.create(6, TimeUnit.SECONDS),     // Frequency 5 seconds
                 super.getSelf(), // Send the message to itself
                 "sendOffer",
                 getContext().getSystem().dispatcher(),
